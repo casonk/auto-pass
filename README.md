@@ -66,6 +66,28 @@ Or run directly from the repo without installing:
 PYTHONPATH=src python3 -m auto_pass --help
 ```
 
+## Architecture Summary
+
+`auto-pass` is a thin CLI and library facade over a few stable internal seams:
+
+1. `auto-pass` and `python -m auto_pass` enter through `src/auto_pass/cli.py`.
+2. `src/auto_pass/envfile.py` optionally loads `config/auto-pass.env.local`,
+   applies `AUTO_PASS_PROFILE_*` mappings, and preserves shell-exported values
+   as the highest-precedence overrides.
+3. `src/auto_pass/keepassxc.py` resolves the effective KeePassXC context from
+   `AUTO_PASS_KEEPASSXC_*` or compatibility `PF_KEEPASSXC_*` values, then
+   optionally seeds the database password from the local cache under
+   `~/.cache/auto-pass/` or from an interactive prompt.
+4. Read commands (`get`, `get-all`) call `keepassxc-cli show` and normalize
+   field aliases.
+5. Write commands (`set`, `mkdir`) call `keepassxc-cli edit` first, then create
+   missing parent groups and fall back to `keepassxc-cli add` when the entry
+   does not already exist.
+
+The tests intentionally mock subprocess behavior instead of depending on a real
+KeePass database, so the main contract here is command construction, env
+resolution, and secret-handling behavior.
+
 The CLI loads `config/auto-pass.env.local` automatically. To use a different
 file or disable file loading:
 
@@ -133,6 +155,10 @@ mode = upsert_keepassxc_entry(
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+See `docs/contributor-architecture-blueprint.md` and
+`docs/diagrams/repo-architecture.{puml,drawio}` for the repo-specific
+architecture surfaces.
 
 ## Next
 
