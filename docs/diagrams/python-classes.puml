@@ -1,0 +1,25 @@
+@startuml classes_auto-pass
+set namespaceSeparator none
+class "<color:red>EnvFileError</color>" as auto_pass.envfile.EnvFileError {
+}
+class "<color:red>KeepassCommandError</color>" as auto_pass.keepassxc.KeepassCommandError {
+}
+class "KeepassXCStoreConfig" as auto_pass.keepassxc.KeepassXCStoreConfig {
+  database_key_file : str
+  database_key_file_env_names : tuple[str, ...]
+  database_password_cache_dir : str
+  database_password_cache_enabled : bool
+  database_password_cache_file : str
+  database_password_cache_ttl_seconds : int
+  database_password_env_names : tuple[str, ...]
+  database_path : str
+  database_path_env_names : tuple[str, ...]
+}
+class "ResolvedKeepassContext" as auto_pass.keepassxc.ResolvedKeepassContext {
+  db_password : str
+  db_path : str
+  interactive_allowed : bool
+  key_file : str
+  password_env_name : str
+}
+@enduml
