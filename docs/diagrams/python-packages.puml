@@ -1,0 +1,18 @@
+@startuml packages_auto-pass
+set namespaceSeparator none
+package "auto_pass" as auto_pass {
+}
+package "auto_pass.__main__" as auto_pass.__main__ {
+}
+package "auto_pass.cli" as auto_pass.cli {
+}
+package "auto_pass.envfile" as auto_pass.envfile {
+}
+package "auto_pass.keepassxc" as auto_pass.keepassxc {
+}
+auto_pass --> auto_pass.envfile
+auto_pass --> auto_pass.keepassxc
+auto_pass.__main__ --> auto_pass.cli
+auto_pass.cli --> auto_pass.envfile
+auto_pass.cli --> auto_pass.keepassxc
+@enduml
