@@ -1,0 +1,72 @@
+@startuml
+!pragma layout smetana
+title auto-pass KeePassXC Automation Architecture
+skinparam shadowing false
+skinparam defaultFontName Monospace
+skinparam packageStyle rectangle
+
+actor "Caller / Script Consumer" as caller
+
+package "Public Entry Surface" #F8FAFC {
+  rectangle "auto-pass\npython -m auto_pass\n__main__.py -> cli.main" as cli #DBEAFE
+  rectangle "src/auto_pass/__init__.py\nlibrary exports" as exports #E0F2FE
+}
+
+package "Configuration And Context" #EFF6FF {
+  rectangle "config/auto-pass.env.local\nshell env overrides\nconfig/auto-pass.env.example" as env_input #E2E8F0
+  rectangle "envfile.py\nparse env text\napply AUTO_PASS_PROFILE_*" as envfile #E0F2FE
+  rectangle "keepassxc.py context\nresolve DB path / password / key file\nsupport AUTO_PASS_* and PF_*" as context #FCE7F3
+  file "~/.cache/auto-pass/\nkeepassxc-db-password-*.json" as cache #FEF3C7
+}
+
+package "Read Lane" #F0FDF4 {
+  rectangle "resolve_keepassxc_entry\nresolve_keepassxc_entry_all_fields\nattribute alias normalization" as read_api #DCFCE7
+  rectangle "keepassxc-cli show" as show_cmd #BBF7D0
+  file "stdout / JSON\nrequested fields or all fields" as read_out #DCFCE7
+}
+
+package "Write Lane" #FFF7ED {
+  rectangle "ensure_group\nupsert_keepassxc_entry" as write_api #FED7AA
+  rectangle "keepassxc-cli edit" as edit_cmd #FDBA74
+  rectangle "keepassxc-cli mkdir" as mkdir_cmd #FDBA74
+  rectangle "keepassxc-cli add" as add_cmd #FDBA74
+  file "stdout modes\nedit / add / created / exists" as write_out #FFEDD5
+}
+
+package "Validation Surface" #FDF2F8 {
+  rectangle "tests/test_envfile.py\ntests/test_keepassxc.py" as tests #FBCFE8
+  rectangle ".github/workflows/ci.yml\ninstall + help + unittest" as ci #F9A8D4
+}
+
+rectangle "README.md\ndocs/contributor-architecture-blueprint.md" as docs #E2E8F0
+
+caller --> cli
+cli --> envfile
+env_input --> envfile
+envfile --> context
+cache --> context : seed password
+exports ..> read_api
+exports ..> write_api
+
+cli --> read_api : get / get-all
+context --> read_api
+read_api --> show_cmd
+show_cmd --> read_out
+
+cli --> write_api : set / mkdir
+context --> write_api
+write_api --> edit_cmd : set
+edit_cmd --> write_out : entry exists
+write_api --> mkdir_cmd : mkdir or parent path
+edit_cmd --> add_cmd : entry missing
+mkdir_cmd --> add_cmd : after group ensure
+add_cmd --> write_out
+mkdir_cmd --> write_out
+
+tests ..> envfile
+tests ..> read_api
+tests ..> write_api
+ci --> tests
+docs ..> cli : documents
+docs ..> context : explains
+@enduml
