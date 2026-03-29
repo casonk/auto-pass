@@ -1,0 +1,23 @@
+@startuml
+title auto-pass Tooling Integrations
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName Monospace
+skinparam componentStyle rectangle
+skinparam linetype ortho
+rectangle ".github/workflows/ci.yml\\n5 detected tools" as source_github_workflows_ci_yml #E0F2FE
+cloud "actions/checkout" as tool_actions_checkout #FEF3C7
+cloud "actions/setup-python" as tool_actions_setup_python #FEF3C7
+cloud "auto_pass" as tool_auto_pass #FEF3C7
+cloud "pip" as tool_pip #FEF3C7
+cloud "unittest" as tool_unittest #FEF3C7
+source_github_workflows_ci_yml --> tool_actions_checkout
+source_github_workflows_ci_yml --> tool_actions_setup_python
+source_github_workflows_ci_yml --> tool_auto_pass
+source_github_workflows_ci_yml --> tool_pip
+source_github_workflows_ci_yml --> tool_unittest
+note as toolingGraphSummary
+Scanned 1 tooling entrypoint.
+Detected 5 third-party tools.
+end note
+@enduml
