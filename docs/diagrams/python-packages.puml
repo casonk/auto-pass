@@ -1,15 +1,12 @@
 @startuml packages_auto-pass
 set namespaceSeparator none
-package "auto_pass" as auto_pass {
-}
-package "auto_pass.__main__" as auto_pass.__main__ {
-}
-package "auto_pass.cli" as auto_pass.cli {
-}
-package "auto_pass.envfile" as auto_pass.envfile {
-}
-package "auto_pass.keepassxc" as auto_pass.keepassxc {
-}
+top to bottom direction
+skinparam componentStyle rectangle
+rectangle "auto_pass\n0 child pkg, 4 modules\n5 python files\nexamples: __main__, cli, envfile" as auto_pass
+rectangle "auto_pass.__main__\n1 python file" as auto_pass.__main__
+rectangle "auto_pass.cli\n1 python file" as auto_pass.cli
+rectangle "auto_pass.envfile\n1 python file" as auto_pass.envfile
+rectangle "auto_pass.keepassxc\n1 python file" as auto_pass.keepassxc
 auto_pass --> auto_pass.envfile
 auto_pass --> auto_pass.keepassxc
 auto_pass.__main__ --> auto_pass.cli
