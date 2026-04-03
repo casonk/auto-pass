@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 import re
 import shlex
+from collections.abc import MutableMapping
 from pathlib import Path
-from typing import Mapping, MutableMapping
 
 DEFAULT_ENV_FILE = Path("config/auto-pass.env.local")
 _ASSIGNMENT_RE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
@@ -42,9 +42,7 @@ def parse_env_text(text: str) -> dict[str, str]:
         try:
             tokens = shlex.split(raw_value, posix=True)
         except ValueError as exc:
-            raise EnvFileError(
-                f"Invalid env value at line {lineno} for {key}: {exc}"
-            ) from exc
+            raise EnvFileError(f"Invalid env value at line {lineno} for {key}: {exc}") from exc
         values[key] = tokens[0] if len(tokens) == 1 else " ".join(tokens)
     return values
 

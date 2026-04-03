@@ -110,20 +110,22 @@ class KeepassPromptTests(unittest.TestCase):
                 database_password_cache_ttl_seconds=3600,
             )
 
-            with patch.dict(
-                os.environ,
-                {
-                    **DEFAULT_ENV,
-                    "AUTO_PASS_KEEPASSXC_DB_PASSWORD": "",
-                },
-                clear=False,
-            ):
-                with patch(
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        **DEFAULT_ENV,
+                        "AUTO_PASS_KEEPASSXC_DB_PASSWORD": "",
+                    },
+                    clear=False,
+                ),
+                patch(
                     "auto_pass.keepassxc.sys.stdin",
                     SimpleNamespace(isatty=lambda: False),
-                ):
-                    seed_keepass_password_env_for_tty(config)
-                    resolved = os.getenv("AUTO_PASS_KEEPASSXC_DB_PASSWORD", "")
+                ),
+            ):
+                seed_keepass_password_env_for_tty(config)
+                resolved = os.getenv("AUTO_PASS_KEEPASSXC_DB_PASSWORD", "")
 
         self.assertEqual(resolved, "cached-db-pass")
 
@@ -135,24 +137,26 @@ class KeepassPromptTests(unittest.TestCase):
                 database_password_cache_ttl_seconds=3600,
             )
 
-            with patch.dict(
-                os.environ,
-                {
-                    **DEFAULT_ENV,
-                    "AUTO_PASS_KEEPASSXC_DB_PASSWORD": "",
-                },
-                clear=False,
-            ):
-                with patch(
+            with (
+                patch.dict(
+                    os.environ,
+                    {
+                        **DEFAULT_ENV,
+                        "AUTO_PASS_KEEPASSXC_DB_PASSWORD": "",
+                    },
+                    clear=False,
+                ),
+                patch(
                     "auto_pass.keepassxc.sys.stdin",
                     SimpleNamespace(isatty=lambda: True),
+                ),
+            ):
+                with patch(
+                    "auto_pass.keepassxc.getpass",
+                    return_value="prompted-db-pass",
                 ):
-                    with patch(
-                        "auto_pass.keepassxc.getpass",
-                        return_value="prompted-db-pass",
-                    ):
-                        seed_keepass_password_env_for_tty(config)
-                    resolved = os.getenv("AUTO_PASS_KEEPASSXC_DB_PASSWORD", "")
+                    seed_keepass_password_env_for_tty(config)
+                resolved = os.getenv("AUTO_PASS_KEEPASSXC_DB_PASSWORD", "")
 
             cached = json.loads(cache_file.read_text(encoding="utf-8"))
 

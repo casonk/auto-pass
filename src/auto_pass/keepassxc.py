@@ -6,10 +6,10 @@ import os
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
-from typing import Mapping
 
 ATTRIBUTE_ALIASES = {
     "title": "Title",
@@ -140,9 +140,7 @@ def _default_cache_path(config: KeepassXCStoreConfig, db_path: str) -> Path:
 def seed_keepass_password_env_for_tty(
     config: KeepassXCStoreConfig = KeepassXCStoreConfig(),
 ) -> None:
-    password_env_name, existing_password = _resolve_env_value(
-        config.database_password_env_names
-    )
+    password_env_name, existing_password = _resolve_env_value(config.database_password_env_names)
     if existing_password:
         return
 
@@ -197,9 +195,7 @@ def _resolve_context(
 ) -> ResolvedKeepassContext:
     db_path = _resolve_db_path(config)
     seed_keepass_password_env_for_tty(config)
-    password_env_name, db_password = _resolve_env_value(
-        config.database_password_env_names
-    )
+    password_env_name, db_password = _resolve_env_value(config.database_password_env_names)
     key_file = _resolve_key_file(config)
     interactive_allowed = bool(allow_interactive or sys.stdin.isatty())
     if not db_password and not interactive_allowed:
@@ -251,9 +247,7 @@ def _raise_keepass_error(
     context: ResolvedKeepassContext,
 ) -> None:
     stderr = (result.stderr or "").strip()
-    mode = (
-        "non_interactive_env_password" if context.db_password else "interactive_prompt"
-    )
+    mode = "non_interactive_env_password" if context.db_password else "interactive_prompt"
     details = f"; stderr={stderr}" if stderr else ""
     raise KeepassCommandError(
         f"keepassxc-cli failed for target {target!r}: {result.returncode}; "
@@ -353,9 +347,7 @@ def resolve_keepassxc_entry_all_fields(
             continue
         if current_key and line.strip():
             existing = fields.get(current_key, "")
-            fields[current_key] = (
-                f"{existing}\n{line.strip()}" if existing else line.strip()
-            )
+            fields[current_key] = f"{existing}\n{line.strip()}" if existing else line.strip()
     return fields
 
 
