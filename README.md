@@ -50,9 +50,34 @@ active `AUTO_PASS_KEEPASSXC_*` env vars before running the command. Profile
 names are normalized to uppercase with non-alphanumeric characters replaced by
 underscores.
 
+For one-off commands, `--profile` overrides the active profile without editing
+the env file:
+
+```bash
+auto-pass --profile work get web/github
+auto-pass list-profiles
+```
+
+Explicitly exported `AUTO_PASS_KEEPASSXC_*` values still take precedence over
+profile-mapped defaults.
+
 Interactive runs cache the KeePass database password in a local JSON file under
 `~/.cache/auto-pass/` by default, with `0600` permissions. The cache contains
 the database password in plaintext, so this should stay local-only.
+
+Optional password-retrieval notifications can be sent through the sibling
+`shock-relay` repo. When `AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL=1` is set,
+successful reads that include the KeePass `Password` field send an audit
+message to the configured email and/or Signal recipients. The audit payload
+includes entry path, active profile, vault basename, host, user, pid, and
+timestamp, but never the secret value itself.
+
+The notification hook sets a suppression env var before invoking
+`shock-relay`, so `shock-relay` can still resolve its own Gmail credentials
+through `auto-pass` without recursively sending nested alerts.
+For Signal, set `AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SIGNAL_TO=note-to-self`
+to send the audit message to the local Signal account defined in the
+`shock-relay` Signal config.
 
 ## Install
 
@@ -72,15 +97,19 @@ PYTHONPATH=src python3 -m auto_pass --help
 
 1. `auto-pass` and `python -m auto_pass` enter through `src/auto_pass/cli.py`.
 2. `src/auto_pass/envfile.py` optionally loads `config/auto-pass.env.local`,
-   applies `AUTO_PASS_PROFILE_*` mappings, and preserves shell-exported values
-   as the highest-precedence overrides.
+   applies `AUTO_PASS_PROFILE_*` mappings, supports CLI profile overrides, and
+   preserves shell-exported values as the highest-precedence overrides.
 3. `src/auto_pass/keepassxc.py` resolves the effective KeePassXC context from
    `AUTO_PASS_KEEPASSXC_*` or compatibility `PF_KEEPASSXC_*` values, then
    optionally seeds the database password from the local cache under
    `~/.cache/auto-pass/` or from an interactive prompt.
-4. Read commands (`get`, `get-all`) call `keepassxc-cli show` and normalize
-   field aliases.
-5. Write commands (`set`, `mkdir`) call `keepassxc-cli edit` first, then create
+4. `src/auto_pass/notifications.py` optionally sends audit notifications
+   through `shock-relay` for successful password-bearing reads, while
+   suppressing nested notifications inside the helper subprocesses.
+5. Read commands (`get`, `get-all`) call `keepassxc-cli show`, normalize
+   field aliases, and then fire the notification hook when the requested data
+   included the KeePass `Password` field.
+6. Write commands (`set`, `mkdir`) call `keepassxc-cli edit` first, then create
    missing parent groups and fall back to `keepassxc-cli add` when the entry
    does not already exist.
 
@@ -94,6 +123,8 @@ file or disable file loading:
 ```bash
 PYTHONPATH=src python3 -m auto_pass --env-file /path/to/other.env get web/github
 PYTHONPATH=src python3 -m auto_pass --no-env-file get web/github
+PYTHONPATH=src python3 -m auto_pass --profile work get web/github
+PYTHONPATH=src python3 -m auto_pass list-profiles
 ```
 
 ## CLI Usage
@@ -102,6 +133,14 @@ Read username + password:
 
 ```bash
 auto-pass get web/github
+auto-pass --profile work get web/github
+```
+
+List available profiles:
+
+```bash
+auto-pass list-profiles
+auto-pass list-profiles --json
 ```
 
 Read a specific field:
@@ -115,6 +154,15 @@ Read all fields as JSON:
 
 ```bash
 auto-pass get-all web/github
+```
+
+Enable password-retrieval notifications through `shock-relay`:
+
+```bash
+AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL=1
+AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_EMAIL_TO=alerts@example.com
+AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SIGNAL_TO=note-to-self
+AUTO_PASS_NOTIFY_SHOCK_RELAY_ROOT=/path/to/shock-relay
 ```
 
 Create or update an entry:
