@@ -1,0 +1,2 @@
+[console_scripts]
+auto-pass = auto_pass.cli:main

@@ -33,7 +33,6 @@ from auto_pass.keepassxc import (
     seed_keepass_password_env_for_tty,
 )
 
-
 # ---------------------------------------------------------------------------
 # Default env values used across keepassxc tests
 # ---------------------------------------------------------------------------
@@ -52,6 +51,7 @@ _KEEPASS_ENV = {
 # TempWorkdir — file-reading/writing tests
 # ---------------------------------------------------------------------------
 
+
 class TempWorkdirEnvFileTests(unittest.TestCase):
     """Tests that read/write env files using TempWorkdir."""
 
@@ -59,12 +59,14 @@ class TempWorkdirEnvFileTests(unittest.TestCase):
         with TempWorkdir() as wd:
             env_file = wd.write(
                 "auto-pass.env.local",
-                "\n".join([
-                    "AUTO_PASS_PROFILE=staging",
-                    "AUTO_PASS_PROFILE_STAGING_KEEPASSXC_DB_PATH=/mnt/vault/staging.kdbx",
-                    "AUTO_PASS_PROFILE_STAGING_KEEPASSXC_DB_PASSWORD=staging-secret",
-                    "",
-                ]),
+                "\n".join(
+                    [
+                        "AUTO_PASS_PROFILE=staging",
+                        "AUTO_PASS_PROFILE_STAGING_KEEPASSXC_DB_PATH=/mnt/vault/staging.kdbx",
+                        "AUTO_PASS_PROFILE_STAGING_KEEPASSXC_DB_PASSWORD=staging-secret",
+                        "",
+                    ]
+                ),
             )
             env: dict[str, str] = {}
             loaded, applied = load_config_environment(env_file, environ=env)
@@ -78,13 +80,15 @@ class TempWorkdirEnvFileTests(unittest.TestCase):
         with TempWorkdir() as wd:
             env_file = wd.write(
                 "custom.env",
-                "\n".join([
-                    "AUTO_PASS_PROFILE=dev",
-                    "AUTO_PASS_PROFILE_DEV_KEEPASSXC_DB_PATH=/dev/db.kdbx",
-                    "AUTO_PASS_PROFILE_DEV_KEEPASSXC_DB_PASSWORD=dev-pass",
-                    "AUTO_PASS_PROFILE_DEV_KEEPASSXC_KEY_FILE=/dev/keyfile.keyx",
-                    "",
-                ]),
+                "\n".join(
+                    [
+                        "AUTO_PASS_PROFILE=dev",
+                        "AUTO_PASS_PROFILE_DEV_KEEPASSXC_DB_PATH=/dev/db.kdbx",
+                        "AUTO_PASS_PROFILE_DEV_KEEPASSXC_DB_PASSWORD=dev-pass",
+                        "AUTO_PASS_PROFILE_DEV_KEEPASSXC_KEY_FILE=/dev/keyfile.keyx",
+                        "",
+                    ]
+                ),
             )
             env: dict[str, str] = {}
             load_config_environment(env_file, environ=env)
@@ -125,7 +129,9 @@ class TempWorkdirEnvFileTests(unittest.TestCase):
                     "auto_pass.keepassxc.sys.stdin",
                     SimpleNamespace(isatty=lambda: True),
                 ):
-                    with patch("auto_pass.keepassxc.getpass", return_value="prompted-pass"):
+                    with patch(
+                        "auto_pass.keepassxc.getpass", return_value="prompted-pass"
+                    ):
                         seed_keepass_password_env_for_tty(config)
 
             wd.assert_exists("keepass-cache.json")
@@ -145,6 +151,7 @@ class TempWorkdirEnvFileTests(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # EnvPatch — environment-variable-driven tests
 # ---------------------------------------------------------------------------
+
 
 class EnvPatchAutoPassTests(unittest.TestCase):
     """Tests that verify env-driven resolution using EnvPatch."""
