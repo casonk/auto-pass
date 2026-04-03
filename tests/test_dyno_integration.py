@@ -25,7 +25,6 @@ from auto_pass.envfile import (
     apply_keepass_profile_environment,
     load_config_environment,
     normalize_profile_name,
-    parse_env_text,
 )
 from auto_pass.keepassxc import (
     KeepassXCStoreConfig,
@@ -124,15 +123,15 @@ class TempWorkdirEnvFileTests(unittest.TestCase):
                 database_password_cache_ttl_seconds=3600,
             )
             target_env = {**_KEEPASS_ENV, "AUTO_PASS_KEEPASSXC_DB_PASSWORD": ""}
-            with EnvPatch(target_env):
-                with patch(
+            with (
+                EnvPatch(target_env),
+                patch(
                     "auto_pass.keepassxc.sys.stdin",
                     SimpleNamespace(isatty=lambda: True),
-                ):
-                    with patch(
-                        "auto_pass.keepassxc.getpass", return_value="prompted-pass"
-                    ):
-                        seed_keepass_password_env_for_tty(config)
+                ),
+                patch("auto_pass.keepassxc.getpass", return_value="prompted-pass"),
+            ):
+                seed_keepass_password_env_for_tty(config)
 
             wd.assert_exists("keepass-cache.json")
             cached = json.loads(wd.read("keepass-cache.json"))
@@ -185,9 +184,7 @@ class EnvPatchAutoPassTests(unittest.TestCase):
 
         with EnvPatch(_KEEPASS_ENV):
             with patch("auto_pass.keepassxc.subprocess.run", side_effect=fake_run):
-                resolved = resolve_keepassxc_entry(
-                    "web/myapp", attrs_map={"username": "un", "password": "pw"}
-                )
+                resolve_keepassxc_entry("web/myapp", attrs_map={"username": "un", "password": "pw"})
 
         # The db path from env should appear in the keepassxc-cli invocation
         self.assertTrue(
@@ -206,9 +203,7 @@ class EnvPatchAutoPassTests(unittest.TestCase):
 
         with EnvPatch(_KEEPASS_ENV):
             with patch("auto_pass.keepassxc.subprocess.run", side_effect=fake_run):
-                resolve_keepassxc_entry(
-                    "web/myapp", attrs_map={"username": "un", "password": "pw"}
-                )
+                resolve_keepassxc_entry("web/myapp", attrs_map={"username": "un", "password": "pw"})
 
         # The db password must be delivered via stdin to keepassxc-cli
         self.assertTrue(
