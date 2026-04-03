@@ -3,5 +3,9 @@ __pycache__/
 .venv/
 *.pyc
 config/*.env.local
+config/*.env.local.pre-*
+config/*.local.yaml
 CHATHISTORY.md
 .codex
+
+CLAUDE.md
