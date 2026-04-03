@@ -22,7 +22,6 @@ from auto_pass.keepassxc import (
     upsert_keepassxc_entry,
 )
 
-
 DEFAULT_ENV = {
     "AUTO_PASS_KEEPASSXC_DB_PATH": "/tmp/test-db.kdbx",
     "AUTO_PASS_KEEPASSXC_DB_PASSWORD": "test-password",

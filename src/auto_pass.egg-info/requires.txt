@@ -1,0 +1,4 @@
+
+[dev]
+pytest>=8
+dyno_lab @ git+https://github.com/casonk/dyno-lab.git

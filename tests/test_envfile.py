@@ -18,14 +18,12 @@ from auto_pass.envfile import (
 
 class EnvFileTests(unittest.TestCase):
     def test_parse_env_text_supports_export_and_quotes(self) -> None:
-        parsed = parse_env_text(
-            """
+        parsed = parse_env_text("""
             # comment
             export AUTO_PASS_PROFILE=work
             AUTO_PASS_PROFILE_WORK_KEEPASSXC_DB_PATH="/tmp/work db.kdbx"
             AUTO_PASS_PROFILE_WORK_KEEPASSXC_DB_PASSWORD='secret value'
-            """
-        )
+            """)
 
         self.assertEqual(parsed["AUTO_PASS_PROFILE"], "work")
         self.assertEqual(
