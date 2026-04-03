@@ -22,10 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--env-file",
         default=str(DEFAULT_ENV_FILE),
-        help=(
-            "Local env file to load before running commands. "
-            f"Defaults to {DEFAULT_ENV_FILE}."
-        ),
+        help=(f"Local env file to load before running commands. Defaults to {DEFAULT_ENV_FILE}."),
     )
     parser.add_argument(
         "--no-env-file",
@@ -103,9 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
         "mkdir",
         help="Ensure a KeePassXC group path exists.",
     )
-    mkdir_parser.add_argument(
-        "group", help="Group path, for example web or infra/github"
-    )
+    mkdir_parser.add_argument("group", help="Group path, for example web or infra/github")
     mkdir_parser.add_argument(
         "--allow-interactive",
         action="store_true",
