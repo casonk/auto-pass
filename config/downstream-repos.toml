@@ -1,0 +1,16 @@
+# Known downstream repositories for auto-pass.
+# Paths are relative to the portfolio root.
+# Track explicit code/config integrations here, not generic shared-utility
+# mentions from AGENTS.md alone.
+
+[utility_repo]
+path = "./util-repos/auto-pass"
+
+[downstream_repos]
+tracking_basis = "explicit code/config integrations"
+paths = [
+  "./util-repos/intake",       # config/auto-pass.example.ini + intake/cli.py
+  "./util-repos/nordility",    # config/auto-pass.example.ini + src/nordility/{cli,client}.py
+  "./util-repos/shock-relay",  # config/auto-pass.example.ini + services/{gmail-imap,twilio}/common.py
+  "./util-repos/snowbridge",   # config/auto-pass.example.ini + scripts/setup_filebrowser_access.py
+]
