@@ -11,7 +11,6 @@ from getpass import getpass
 from pathlib import Path
 from typing import Mapping
 
-
 ATTRIBUTE_ALIASES = {
     "title": "Title",
     "user_name": "UserName",
@@ -252,7 +251,9 @@ def _raise_keepass_error(
     context: ResolvedKeepassContext,
 ) -> None:
     stderr = (result.stderr or "").strip()
-    mode = "non_interactive_env_password" if context.db_password else "interactive_prompt"
+    mode = (
+        "non_interactive_env_password" if context.db_password else "interactive_prompt"
+    )
     details = f"; stderr={stderr}" if stderr else ""
     raise KeepassCommandError(
         f"keepassxc-cli failed for target {target!r}: {result.returncode}; "
@@ -460,4 +461,3 @@ def upsert_keepassxc_entry(
 
     _raise_keepass_error(add_result, target=entry, context=context)
     raise AssertionError("unreachable")
-

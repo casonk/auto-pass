@@ -103,7 +103,9 @@ def build_parser() -> argparse.ArgumentParser:
         "mkdir",
         help="Ensure a KeePassXC group path exists.",
     )
-    mkdir_parser.add_argument("group", help="Group path, for example web or infra/github")
+    mkdir_parser.add_argument(
+        "group", help="Group path, for example web or infra/github"
+    )
     mkdir_parser.add_argument(
         "--allow-interactive",
         action="store_true",
