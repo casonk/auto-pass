@@ -1,0 +1,17 @@
+LICENSE
+README.md
+pyproject.toml
+src/auto_pass/__init__.py
+src/auto_pass/__main__.py
+src/auto_pass/cli.py
+src/auto_pass/envfile.py
+src/auto_pass/keepassxc.py
+src/auto_pass.egg-info/PKG-INFO
+src/auto_pass.egg-info/SOURCES.txt
+src/auto_pass.egg-info/dependency_links.txt
+src/auto_pass.egg-info/entry_points.txt
+src/auto_pass.egg-info/requires.txt
+src/auto_pass.egg-info/top_level.txt
+tests/test_dyno_integration.py
+tests/test_envfile.py
+tests/test_keepassxc.py

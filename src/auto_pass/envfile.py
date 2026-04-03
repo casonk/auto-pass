@@ -6,7 +6,6 @@ import shlex
 from pathlib import Path
 from typing import Mapping, MutableMapping
 
-
 DEFAULT_ENV_FILE = Path("config/auto-pass.env.local")
 _ASSIGNMENT_RE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
 _PROFILE_ENV_MAP = {
@@ -99,4 +98,3 @@ def load_config_environment(
     loaded = load_env_file(path, override=override, environ=env)
     applied = apply_keepass_profile_environment(env, override=override)
     return loaded, applied
-
