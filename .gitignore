@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 config/*.env.local
 CHATHISTORY.md
+.codex
