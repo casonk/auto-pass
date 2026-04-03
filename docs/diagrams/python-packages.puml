@@ -2,14 +2,15 @@
 set namespaceSeparator none
 top to bottom direction
 skinparam componentStyle rectangle
-rectangle "auto_pass\n0 child pkg, 4 modules\n5 python files\nexamples: __main__, cli, envfile" as auto_pass
-rectangle "auto_pass.__main__\n1 python file" as auto_pass.__main__
-rectangle "auto_pass.cli\n1 python file" as auto_pass.cli
-rectangle "auto_pass.envfile\n1 python file" as auto_pass.envfile
-rectangle "auto_pass.keepassxc\n1 python file" as auto_pass.keepassxc
-auto_pass --> auto_pass.envfile
-auto_pass --> auto_pass.keepassxc
-auto_pass.__main__ --> auto_pass.cli
-auto_pass.cli --> auto_pass.envfile
-auto_pass.cli --> auto_pass.keepassxc
+rectangle "conftest\n1 python file" as conftest
+rectangle "src.auto_pass\n0 child pkg, 4 modules\n5 python files\nexamples: __main__, cli, envfile" as src.auto_pass
+rectangle "src.auto_pass.__main__\n1 python file" as src.auto_pass.__main__
+rectangle "src.auto_pass.cli\n1 python file" as src.auto_pass.cli
+rectangle "src.auto_pass.envfile\n1 python file" as src.auto_pass.envfile
+rectangle "src.auto_pass.keepassxc\n1 python file" as src.auto_pass.keepassxc
+src.auto_pass --> src.auto_pass.envfile
+src.auto_pass --> src.auto_pass.keepassxc
+src.auto_pass.__main__ --> src.auto_pass.cli
+src.auto_pass.cli --> src.auto_pass.envfile
+src.auto_pass.cli --> src.auto_pass.keepassxc
 @enduml
