@@ -5,7 +5,14 @@ import json
 import sys
 from pathlib import Path
 
-from .envfile import DEFAULT_ENV_FILE, load_config_environment
+from .envfile import (
+    DEFAULT_ENV_FILE,
+    activate_keepass_profile,
+    apply_keepass_profile_environment,
+    get_active_keepass_profile,
+    list_keepass_profiles,
+    load_config_environment,
+)
 from .keepassxc import (
     ensure_group,
     resolve_keepassxc_entry,
@@ -28,6 +35,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-env-file",
         action="store_true",
         help="Do not load the local env file before running commands.",
+    )
+    parser.add_argument(
+        "--profile",
+        help=(
+            "Override AUTO_PASS_PROFILE for this command. The value is normalized "
+            "the same way as profile names in the env file."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -107,6 +121,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Allow prompting for the KeePass database password when possible.",
     )
 
+    list_profiles_parser = subparsers.add_parser(
+        "list-profiles",
+        help="List configured KeePass profiles from the current env context.",
+    )
+    list_profiles_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object with the active profile and available profiles.",
+    )
+
     return parser
 
 
@@ -125,7 +149,10 @@ def _read_notes(args: argparse.Namespace) -> str | None:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if not args.no_env_file:
-        load_config_environment(args.env_file)
+        load_config_environment(args.env_file, profile=args.profile)
+    elif args.profile:
+        activate_keepass_profile(args.profile)
+        apply_keepass_profile_environment()
 
     if args.command == "get":
         field_names = args.field or ["username", "password"]
@@ -174,6 +201,23 @@ def main(argv: list[str] | None = None) -> int:
             allow_interactive=args.allow_interactive,
         )
         print("created" if created else "exists")
+        return 0
+
+    if args.command == "list-profiles":
+        active_profile = get_active_keepass_profile()
+        profiles = list_keepass_profiles()
+        if args.json:
+            print(
+                json.dumps(
+                    {"active_profile": active_profile, "profiles": profiles},
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return 0
+        for profile in profiles:
+            prefix = "* " if profile == active_profile else "  "
+            print(f"{prefix}{profile}")
         return 0
 
     raise AssertionError(f"Unhandled command: {args.command}")
