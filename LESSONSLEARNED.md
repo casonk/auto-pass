@@ -22,3 +22,21 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   branch of the implementation.
 - Keep local cache files and local env files explicit in the architecture, but
   never inspect or record their secret contents.
+- When adding profile-aware downstream integrations, prefer
+  `load_config_environment(path, profile=...)` over manually mutating
+  `AUTO_PASS_PROFILE` plus a second profile-apply step.
+- For direct downstream consumers of `auto-pass`, standardize on a tracked
+  `config/auto-pass.example.ini` plus gitignored `config/auto-pass.ini` for
+  repo-local defaults; keep older compatibility flows like
+  `personal-finance/pf.env.local` separate instead of forcing the same file
+  shape everywhere.
+- Keep tracked example configs scrubbed of real account identifiers, email
+  addresses, hostnames, and live KeePass entry names; use obvious placeholders
+  that show the shape without mirroring the operator's private vault layout.
+- When scrubbing tracked placeholder entry names, preserve any naming
+  conventions that code depends on, such as suffix-based heuristics like
+  `@refresh`, so privacy cleanups do not silently weaken runtime behavior.
+- When `auto-pass` invokes downstream tools that can themselves resolve
+  credentials through `auto-pass`, add an explicit suppression guard so
+  notification or audit hooks do not recurse through sibling repos like
+  `shock-relay`.

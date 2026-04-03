@@ -12,7 +12,9 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from auto_pass.notifications import PasswordRetrievalNotificationError
 from auto_pass.keepassxc import (
+    KeepassCommandError,
     KeepassXCStoreConfig,
     ensure_group,
     lookup_keepass_field_case_insensitive,
@@ -61,6 +63,75 @@ class KeepassResolutionTests(unittest.TestCase):
         self.assertNotIn("un", captured_cmd)
         self.assertNotIn("pw", captured_cmd)
 
+    def test_resolve_keepassxc_entry_notifies_on_password_reads(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="octocat\nsecret\n",
+                    stderr="",
+                ),
+            ),
+            patch("auto_pass.keepassxc.maybe_notify_password_retrieval") as notify,
+        ):
+            resolve_keepassxc_entry(
+                entry="web/github",
+                attrs_map={"username": "username", "password": "password"},
+            )
+
+        notify.assert_called_once()
+        self.assertEqual(notify.call_args.kwargs["requested_attributes"], ["UserName", "Password"])
+
+    def test_resolve_keepassxc_entry_skips_notifications_for_non_password_reads(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="octocat\n",
+                    stderr="",
+                ),
+            ),
+            patch("auto_pass.keepassxc.maybe_notify_password_retrieval") as notify,
+        ):
+            resolve_keepassxc_entry(
+                entry="web/github",
+                attrs_map={"username": "username"},
+            )
+
+        notify.assert_called_once()
+        self.assertEqual(notify.call_args.kwargs["requested_attributes"], ["UserName"])
+
+    def test_resolve_keepassxc_entry_wraps_notification_failures(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="octocat\nsecret\n",
+                    stderr="",
+                ),
+            ),
+            patch(
+                "auto_pass.keepassxc.maybe_notify_password_retrieval",
+                side_effect=PasswordRetrievalNotificationError("notification failed"),
+            ),
+        ):
+            with self.assertRaises(KeepassCommandError) as exc:
+                resolve_keepassxc_entry(
+                    entry="web/github",
+                    attrs_map={"username": "username", "password": "password"},
+                )
+
+        self.assertIn("notification failed", str(exc.exception))
+
     def test_resolve_keepassxc_entry_all_fields_parses_multiline_notes(self) -> None:
         def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
             return subprocess.CompletedProcess(
@@ -84,6 +155,28 @@ class KeepassResolutionTests(unittest.TestCase):
         self.assertEqual(resolved["Title"], "GitHub")
         self.assertEqual(resolved["UserName"], "octocat")
         self.assertEqual(resolved["Notes"], "first line\nsecond line")
+
+    def test_resolve_keepassxc_entry_all_fields_notifies_with_field_names(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="Title: GitHub\nUserName: octocat\nPassword: secret\n",
+                    stderr="",
+                ),
+            ),
+            patch("auto_pass.keepassxc.maybe_notify_password_retrieval") as notify,
+        ):
+            resolve_keepassxc_entry_all_fields("web/github")
+
+        notify.assert_called_once()
+        self.assertEqual(
+            list(notify.call_args.kwargs["requested_attributes"]),
+            ["Title", "UserName", "Password"],
+        )
 
     def test_lookup_keepass_field_case_insensitive_handles_aliases(self) -> None:
         fields = {"UserName": "octocat", "Password": "secret"}

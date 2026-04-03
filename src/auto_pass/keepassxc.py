@@ -11,6 +11,11 @@ from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
 
+from .notifications import (
+    PasswordRetrievalNotificationError,
+    maybe_notify_password_retrieval,
+)
+
 ATTRIBUTE_ALIASES = {
     "title": "Title",
     "user_name": "UserName",
@@ -306,6 +311,14 @@ def resolve_keepassxc_entry(
             normalize_keepass_attribute_name(requested),
         )
         resolved[str(logical_name)] = raw_values.get(keepass_attr, "")
+    try:
+        maybe_notify_password_retrieval(
+            entry=entry,
+            requested_attributes=attr_order,
+            context=context,
+        )
+    except PasswordRetrievalNotificationError as exc:
+        raise KeepassCommandError(str(exc)) from exc
     return resolved
 
 
@@ -348,6 +361,14 @@ def resolve_keepassxc_entry_all_fields(
         if current_key and line.strip():
             existing = fields.get(current_key, "")
             fields[current_key] = f"{existing}\n{line.strip()}" if existing else line.strip()
+    try:
+        maybe_notify_password_retrieval(
+            entry=entry,
+            requested_attributes=fields.keys(),
+            context=context,
+        )
+    except PasswordRetrievalNotificationError as exc:
+        raise KeepassCommandError(str(exc)) from exc
     return fields
 
 
