@@ -12,7 +12,6 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from auto_pass.notifications import PasswordRetrievalNotificationError
 from auto_pass.keepassxc import (
     KeepassCommandError,
     KeepassXCStoreConfig,
@@ -23,6 +22,7 @@ from auto_pass.keepassxc import (
     seed_keepass_password_env_for_tty,
     upsert_keepassxc_entry,
 )
+from auto_pass.notifications import PasswordRetrievalNotificationError
 
 DEFAULT_ENV = {
     "AUTO_PASS_KEEPASSXC_DB_PATH": "/tmp/test-db.kdbx",
