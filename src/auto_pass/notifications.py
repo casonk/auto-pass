@@ -22,9 +22,7 @@ PASSWORD_RETRIEVAL_NOTIFY_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL"
 PASSWORD_RETRIEVAL_NOTIFY_SUPPRESS_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SUPPRESS"
 PASSWORD_RETRIEVAL_NOTIFY_EMAIL_TO_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_EMAIL_TO"
 PASSWORD_RETRIEVAL_NOTIFY_SIGNAL_TO_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SIGNAL_TO"
-PASSWORD_RETRIEVAL_NOTIFY_SUBJECT_PREFIX_ENV = (
-    "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SUBJECT_PREFIX"
-)
+PASSWORD_RETRIEVAL_NOTIFY_SUBJECT_PREFIX_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SUBJECT_PREFIX"
 SHOCK_RELAY_ROOT_ENV = "AUTO_PASS_NOTIFY_SHOCK_RELAY_ROOT"
 SHOCK_RELAY_EMAIL_CONFIG_ENV = "AUTO_PASS_NOTIFY_SHOCK_RELAY_EMAIL_CONFIG"
 SHOCK_RELAY_SIGNAL_CONFIG_ENV = "AUTO_PASS_NOTIFY_SHOCK_RELAY_SIGNAL_CONFIG"
@@ -54,7 +52,7 @@ def _default_shock_relay_root() -> Path:
 
 
 def _load_notification_config(
-    environ: "MutableMapping[str, str]",
+    environ: MutableMapping[str, str],
 ) -> PasswordRetrievalNotificationConfig:
     shock_relay_root = Path(
         str(environ.get(SHOCK_RELAY_ROOT_ENV, "")).strip() or _default_shock_relay_root()
@@ -70,8 +68,7 @@ def _load_notification_config(
         or shock_relay_root / "services/signal-cli/config.local.yaml"
     ).expanduser()
     subject_prefix = (
-        str(environ.get(PASSWORD_RETRIEVAL_NOTIFY_SUBJECT_PREFIX_ENV, "")).strip()
-        or "[auto-pass]"
+        str(environ.get(PASSWORD_RETRIEVAL_NOTIFY_SUBJECT_PREFIX_ENV, "")).strip() or "[auto-pass]"
     )
     return PasswordRetrievalNotificationConfig(
         shock_relay_root=shock_relay_root,
@@ -83,7 +80,7 @@ def _load_notification_config(
     )
 
 
-def _normalized_requested_attributes(requested_attributes: "Iterable[str]") -> list[str]:
+def _normalized_requested_attributes(requested_attributes: Iterable[str]) -> list[str]:
     from .keepassxc import normalize_keepass_attribute_name
 
     values: list[str] = []
@@ -98,8 +95,8 @@ def _build_audit_lines(
     *,
     entry: str,
     requested_attributes: list[str],
-    context: "ResolvedKeepassContext",
-    environ: "MutableMapping[str, str]",
+    context: ResolvedKeepassContext,
+    environ: MutableMapping[str, str],
 ) -> list[str]:
     profile = get_active_keepass_profile(environ=environ) or "direct"
     timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -116,7 +113,7 @@ def _build_audit_lines(
     ]
 
 
-def _relay_environment(environ: "MutableMapping[str, str]") -> dict[str, str]:
+def _relay_environment(environ: MutableMapping[str, str]) -> dict[str, str]:
     child_env = dict(environ)
     child_env[PASSWORD_RETRIEVAL_NOTIFY_SUPPRESS_ENV] = "1"
     return child_env
@@ -174,7 +171,7 @@ def _run_relay_command(
     channel: str,
     cmd: list[str],
     config: PasswordRetrievalNotificationConfig,
-    environ: "MutableMapping[str, str]",
+    environ: MutableMapping[str, str],
 ) -> None:
     try:
         result = subprocess.run(
@@ -196,8 +193,7 @@ def _run_relay_command(
     details = (result.stderr or result.stdout or "").strip()
     detail_text = f": {details.splitlines()[0]}" if details else ""
     raise PasswordRetrievalNotificationError(
-        f"shock-relay {channel} notification failed with exit code {result.returncode}"
-        f"{detail_text}"
+        f"shock-relay {channel} notification failed with exit code {result.returncode}{detail_text}"
     )
 
 
@@ -205,7 +201,7 @@ def _run_signal_note_to_self(
     *,
     config: PasswordRetrievalNotificationConfig,
     body: str,
-    environ: "MutableMapping[str, str]",
+    environ: MutableMapping[str, str],
 ) -> None:
     account, bus_name = _extract_signal_cli_fields(config.signal_config_path)
     cmd = ["signal-cli", "-a", account]
@@ -223,9 +219,9 @@ def _run_signal_note_to_self(
 def maybe_notify_password_retrieval(
     *,
     entry: str,
-    requested_attributes: "Iterable[str]",
-    context: "ResolvedKeepassContext",
-    environ: "MutableMapping[str, str] | None" = None,
+    requested_attributes: Iterable[str],
+    context: ResolvedKeepassContext,
+    environ: MutableMapping[str, str] | None = None,
 ) -> None:
     env = os.environ if environ is None else environ
     if _is_truthy(env.get(PASSWORD_RETRIEVAL_NOTIFY_SUPPRESS_ENV, "")):
