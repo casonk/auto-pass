@@ -12,10 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from auto_pass.notifications import (
     PASSWORD_RETRIEVAL_NOTIFY_EMAIL_TO_ENV,
     PASSWORD_RETRIEVAL_NOTIFY_ENV,
+    PASSWORD_RETRIEVAL_NOTIFY_EVERY_N_ENV,
     PASSWORD_RETRIEVAL_NOTIFY_SIGNAL_TO_ENV,
     PASSWORD_RETRIEVAL_NOTIFY_SUPPRESS_ENV,
     SHOCK_RELAY_ROOT_ENV,
     PasswordRetrievalNotificationError,
+    _read_and_increment_counter,
     maybe_notify_password_retrieval,
 )
 
@@ -194,3 +196,68 @@ class NotificationsTests(unittest.TestCase):
                 )
 
         self.assertIn("no email or signal recipient", str(exc.exception))
+
+
+class CounterThrottleTests(unittest.TestCase):
+    def test_every_1_always_fires(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "counter"
+            for _ in range(5):
+                self.assertTrue(_read_and_increment_counter(1, counter_path=path))
+
+    def test_every_3_fires_on_third_call(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "counter"
+            results = [_read_and_increment_counter(3, counter_path=path) for _ in range(6)]
+        self.assertEqual(results, [False, False, True, False, False, True])
+
+    def test_missing_counter_file_treated_as_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "counter"
+            # File does not exist — first increment should land at 1, not fire for N=3
+            self.assertFalse(_read_and_increment_counter(3, counter_path=path))
+
+    def test_maybe_notify_throttled_to_every_3(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            shock_relay_root = Path(tmp) / "shock-relay"
+            signal_script = shock_relay_root / "services/signal-cli/send_message.py"
+            signal_script.parent.mkdir(parents=True, exist_ok=True)
+            signal_script.write_text("", encoding="utf-8")
+            counter_path = Path(tmp) / "counter"
+            captured: list[int] = []
+
+            def fake_run(cmd, **kwargs):
+                captured.append(1)
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+            context = type(
+                "Context",
+                (),
+                {
+                    "db_path": "/vaults/infra.kdbx",
+                    "key_file": "",
+                    "db_password": "secret",
+                    "password_env_name": "AUTO_PASS_KEEPASSXC_DB_PASSWORD",
+                    "interactive_allowed": False,
+                },
+            )()
+            env = {
+                PASSWORD_RETRIEVAL_NOTIFY_ENV: "1",
+                PASSWORD_RETRIEVAL_NOTIFY_EVERY_N_ENV: "3",
+                PASSWORD_RETRIEVAL_NOTIFY_SIGNAL_TO_ENV: "+15555550123",
+                SHOCK_RELAY_ROOT_ENV: str(shock_relay_root),
+            }
+
+            with (
+                patch("auto_pass.notifications.subprocess.run", side_effect=fake_run),
+                patch("auto_pass.notifications._counter_file", return_value=counter_path),
+            ):
+                for _ in range(6):
+                    maybe_notify_password_retrieval(
+                        entry="svc/example",
+                        requested_attributes=["Password"],
+                        context=context,
+                        environ=env,
+                    )
+
+        self.assertEqual(len(captured), 2)  # only calls 3 and 6
