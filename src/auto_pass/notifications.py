@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 PASSWORD_RETRIEVAL_NOTIFY_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL"
 PASSWORD_RETRIEVAL_NOTIFY_SUPPRESS_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SUPPRESS"
+PASSWORD_RETRIEVAL_NOTIFY_EVERY_N_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_EVERY_N"
 PASSWORD_RETRIEVAL_NOTIFY_EMAIL_TO_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_EMAIL_TO"
 PASSWORD_RETRIEVAL_NOTIFY_SIGNAL_TO_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SIGNAL_TO"
 PASSWORD_RETRIEVAL_NOTIFY_SUBJECT_PREFIX_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIEVAL_SUBJECT_PREFIX"
@@ -30,6 +31,35 @@ SHOCK_RELAY_SIGNAL_CONFIG_ENV = "AUTO_PASS_NOTIFY_SHOCK_RELAY_SIGNAL_CONFIG"
 
 class PasswordRetrievalNotificationError(RuntimeError):
     """Raised when a configured password-retrieval notification cannot be sent."""
+
+
+def _counter_file() -> Path:
+    cache_dir = Path.home() / ".cache" / "auto-pass"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / "notify_counter"
+
+
+def _read_and_increment_counter(every_n: int, counter_path: Path | None = None) -> bool:
+    """Increment the persistent notification counter; return True if a notification should fire.
+
+    Fires on every ``every_n``-th retrieval (i.e. calls n, 2n, 3n, ...).
+    Returns True unconditionally when ``every_n <= 1``.
+    """
+    if every_n <= 1:
+        return True
+    path = counter_path if counter_path is not None else _counter_file()
+    try:
+        count = int(path.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        count = 0
+    count += 1
+    try:
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(str(count), encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        pass
+    return count % every_n == 0
 
 
 @dataclass(frozen=True)
@@ -231,6 +261,13 @@ def maybe_notify_password_retrieval(
 
     normalized_requested = _normalized_requested_attributes(requested_attributes)
     if "Password" not in normalized_requested:
+        return
+
+    try:
+        every_n = max(1, int(env.get(PASSWORD_RETRIEVAL_NOTIFY_EVERY_N_ENV, "1") or "1"))
+    except ValueError:
+        every_n = 1
+    if not _read_and_increment_counter(every_n):
         return
 
     config = _load_notification_config(env)
