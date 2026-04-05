@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -15,6 +16,8 @@ from .notifications import (
     PasswordRetrievalNotificationError,
     maybe_notify_password_retrieval,
 )
+
+log = logging.getLogger(__name__)
 
 ATTRIBUTE_ALIASES = {
     "title": "Title",
@@ -318,7 +321,7 @@ def resolve_keepassxc_entry(
             context=context,
         )
     except PasswordRetrievalNotificationError as exc:
-        raise KeepassCommandError(str(exc)) from exc
+        log.warning("password-retrieval notification failed (non-fatal): %s", exc)
     return resolved
 
 
@@ -368,7 +371,7 @@ def resolve_keepassxc_entry_all_fields(
             context=context,
         )
     except PasswordRetrievalNotificationError as exc:
-        raise KeepassCommandError(str(exc)) from exc
+        log.warning("password-retrieval notification failed (non-fatal): %s", exc)
     return fields
 
 
