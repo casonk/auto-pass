@@ -13,7 +13,6 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from auto_pass.keepassxc import (
-    KeepassCommandError,
     KeepassXCStoreConfig,
     ensure_group,
     lookup_keepass_field_case_insensitive,
@@ -107,7 +106,8 @@ class KeepassResolutionTests(unittest.TestCase):
         notify.assert_called_once()
         self.assertEqual(notify.call_args.kwargs["requested_attributes"], ["UserName"])
 
-    def test_resolve_keepassxc_entry_wraps_notification_failures(self) -> None:
+    def test_resolve_keepassxc_entry_notification_failure_is_non_fatal(self) -> None:
+        """A notification failure must not block credential resolution."""
         with (
             patch.dict(os.environ, DEFAULT_ENV, clear=False),
             patch(
@@ -123,14 +123,15 @@ class KeepassResolutionTests(unittest.TestCase):
                 "auto_pass.keepassxc.maybe_notify_password_retrieval",
                 side_effect=PasswordRetrievalNotificationError("notification failed"),
             ),
+            self.assertLogs("auto_pass.keepassxc", level="WARNING") as captured,
         ):
-            with self.assertRaises(KeepassCommandError) as exc:
-                resolve_keepassxc_entry(
-                    entry="web/github",
-                    attrs_map={"username": "username", "password": "password"},
-                )
+            result = resolve_keepassxc_entry(
+                entry="web/github",
+                attrs_map={"username": "username", "password": "password"},
+            )
 
-        self.assertIn("notification failed", str(exc.exception))
+        self.assertIn("octocat", result.get("username", ""))
+        self.assertTrue(any("notification failed" in line for line in captured.output))
 
     def test_resolve_keepassxc_entry_all_fields_parses_multiline_notes(self) -> None:
         def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
