@@ -45,6 +45,17 @@ python3 -m unittest discover -s tests -v
 - The interactive cache can contain plaintext database passwords under `~/.cache/auto-pass/`; do not log or commit anything derived from it.
 - Avoid printing secret values, KeePassXC entry contents, or raw command invocations that include sensitive fields.
 
+## Local CI Verification
+
+Run before every push:
+
+```bash
+pre-commit run --all-files
+pytest -q
+```
+
+Do not push changes that have not passed all checks locally.
+
 ## Portfolio Standards Reference
 
 For portfolio-wide repository standards and baseline conventions, consult the control-plane repo at `./util-repos/traction-control` from the portfolio root.
