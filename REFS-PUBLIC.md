@@ -1,4 +1,4 @@
-# REFS-PUBLIC.md — Public References
+# REFS-PUBLIC.md - Public References
 
 > Record external public repositories, datasets, documentation, APIs, or other
 > public resources that this repository utilizes or depends on.
@@ -6,22 +6,16 @@
 
 ## Public Repositories
 
-<!-- External repos this project depends on, forks, or integrates with:
-- https://github.com/org/repo — description of usage
--->
+- https://github.com/keepassxreboot/keepassxc - upstream KeePassXC project used by the CLI wrappers in this repo
 
 ## Public Datasets and APIs
 
-<!-- Publicly accessible data sources, REST APIs, or external feeds consumed here:
-- https://example.com/dataset — description of usage
--->
+- No standing public web APIs are required; the repo automates local KeePassXC CLI workflows.
 
 ## Documentation and Specifications
 
-<!-- Reference docs, RFCs, standards, or upstream project documentation:
-- https://docs.example.com — description
--->
+- https://keepassxc.org/docs/ - KeePassXC reference for database, CLI, and workflow behavior
 
 ## Notes
 
-<!-- Any context about how these public references are used or versioned -->
+- Notification delivery is delegated to the sibling shock-relay repo; only the external KeePassXC project belongs in tracked public refs here.
