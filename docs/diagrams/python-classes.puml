@@ -15,6 +15,16 @@ class "KeepassXCStoreConfig" as src.auto_pass.keepassxc.KeepassXCStoreConfig {
   database_path : str
   database_path_env_names : tuple[str, ...]
 }
+class "PasswordRetrievalNotificationConfig" as src.auto_pass.notifications.PasswordRetrievalNotificationConfig {
+  email_config_path : Path
+  email_to : str
+  shock_relay_root : Path
+  signal_config_path : Path
+  signal_to : str
+  subject_prefix : str
+}
+class "<color:red>PasswordRetrievalNotificationError</color>" as src.auto_pass.notifications.PasswordRetrievalNotificationError {
+}
 class "ResolvedKeepassContext" as src.auto_pass.keepassxc.ResolvedKeepassContext {
   db_password : str
   db_path : str
