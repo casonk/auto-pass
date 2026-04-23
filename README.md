@@ -8,6 +8,8 @@ This repo is intentionally starting with the part that is already proven in
 password once, caching that password locally for interactive use, and creating
 or updating entries from scripts.
 
+Consent reference: [`../../doc-repos/my-consent/credentials-and-secrets.md`](../../doc-repos/my-consent/credentials-and-secrets.md) documents the explicit consent covering personal credential, secret, and secure-store processing handled by this repo.
+
 ## Current Scope
 
 - Read one or more fields from a KeePassXC entry.
