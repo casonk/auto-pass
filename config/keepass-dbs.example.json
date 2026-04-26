@@ -1,0 +1,19 @@
+{
+  "databases": {
+    "master": {
+      "database_path": "/path/to/master.kdbx",
+      "note": "Primary vault that can hold passwords for other KeePass databases."
+    },
+    "finance": {
+      "database_path": "/path/to/finance.kdbx",
+      "database_password_source": {
+        "database_alias": "master",
+        "entry": "vaults/finance.kdbx",
+        "attribute": "Password"
+      }
+    },
+    "infra": {
+      "database_path": "/path/to/infra.kdbx"
+    }
+  }
+}

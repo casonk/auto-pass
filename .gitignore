@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 config/*.env.local
 config/*.env.local.pre-*
+config/*.local.json
 config/*.local.yaml
 CHATHISTORY.md
 .codex

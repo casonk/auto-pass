@@ -40,3 +40,9 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   credentials through `auto-pass`, add an explicit suppression guard so
   notification or audit hooks do not recurse through sibling repos like
   `shock-relay`.
+- For downstream consumers that need multiple vaults, keep a local gitignored
+  DB alias index (for example `config/keepass-dbs.local.json`) alongside the
+  env/profile file. Let aliases map to vault paths plus optional password-source
+  entries in another vault so sibling repos can resolve split-vault access
+  without hardcoding local `.kdbx` paths or duplicating secondary-vault
+  passwords in repo-specific config.
