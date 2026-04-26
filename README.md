@@ -63,6 +63,15 @@ auto-pass list-profiles
 Explicitly exported `AUTO_PASS_KEEPASSXC_*` values still take precedence over
 profile-mapped defaults.
 
+For downstream repos that need to reference multiple vaults without hardcoding
+paths, `auto-pass` can also keep a local gitignored DB alias index at
+`config/keepass-dbs.local.json`. Start from the tracked
+`config/keepass-dbs.example.json`. This index is a library helper for sibling
+repos today: `auto_pass.load_database_index(...)` and
+`auto_pass.resolve_database_alias(...)` expose alias metadata such as the
+target database path and an optional source entry that holds that vault's
+password in another KeePass database.
+
 Interactive runs cache the KeePass database password in a local JSON file under
 `~/.cache/auto-pass/` by default, with `0600` permissions. The cache contains
 the database password in plaintext, so this should stay local-only.
@@ -101,17 +110,20 @@ PYTHONPATH=src python3 -m auto_pass --help
 2. `src/auto_pass/envfile.py` optionally loads `config/auto-pass.env.local`,
    applies `AUTO_PASS_PROFILE_*` mappings, supports CLI profile overrides, and
    preserves shell-exported values as the highest-precedence overrides.
-3. `src/auto_pass/keepassxc.py` resolves the effective KeePassXC context from
+3. `src/auto_pass/dbindex.py` optionally loads `config/keepass-dbs.local.json`
+   so downstream repos can map logical vault aliases such as `finance` or
+   `infra` to local database paths and password-source metadata.
+4. `src/auto_pass/keepassxc.py` resolves the effective KeePassXC context from
    `AUTO_PASS_KEEPASSXC_*` or compatibility `PF_KEEPASSXC_*` values, then
    optionally seeds the database password from the local cache under
    `~/.cache/auto-pass/` or from an interactive prompt.
-4. `src/auto_pass/notifications.py` optionally sends audit notifications
+5. `src/auto_pass/notifications.py` optionally sends audit notifications
    through `shock-relay` for successful password-bearing reads, while
    suppressing nested notifications inside the helper subprocesses.
-5. Read commands (`get`, `get-all`) call `keepassxc-cli show`, normalize
+6. Read commands (`get`, `get-all`) call `keepassxc-cli show`, normalize
    field aliases, and then fire the notification hook when the requested data
    included the KeePass `Password` field.
-6. Write commands (`set`, `mkdir`) call `keepassxc-cli edit` first, then create
+7. Write commands (`set`, `mkdir`) call `keepassxc-cli edit` first, then create
    missing parent groups and fall back to `keepassxc-cli add` when the entry
    does not already exist.
 
