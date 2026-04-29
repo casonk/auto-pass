@@ -1,5 +1,7 @@
 @startuml classes_auto-pass
 set namespaceSeparator none
+class "<color:red>DatabaseIndexError</color>" as src.auto_pass.dbindex.DatabaseIndexError {
+}
 class "<color:red>EnvFileError</color>" as src.auto_pass.envfile.EnvFileError {
 }
 class "<color:red>KeepassCommandError</color>" as src.auto_pass.keepassxc.KeepassCommandError {
