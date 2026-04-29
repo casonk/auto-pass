@@ -3,12 +3,14 @@ set namespaceSeparator none
 top to bottom direction
 skinparam componentStyle rectangle
 rectangle "conftest\n1 python file" as conftest
-rectangle "src.auto_pass\n0 child pkg, 5 modules\n6 python files\nexamples: __main__, cli, envfile" as src.auto_pass
+rectangle "src.auto_pass\n0 child pkg, 6 modules\n7 python files\nexamples: __main__, cli, dbindex" as src.auto_pass
 rectangle "src.auto_pass.__main__\n1 python file" as src.auto_pass.__main__
 rectangle "src.auto_pass.cli\n1 python file" as src.auto_pass.cli
+rectangle "src.auto_pass.dbindex\n1 python file" as src.auto_pass.dbindex
 rectangle "src.auto_pass.envfile\n1 python file" as src.auto_pass.envfile
 rectangle "src.auto_pass.keepassxc\n1 python file" as src.auto_pass.keepassxc
 rectangle "src.auto_pass.notifications\n1 python file" as src.auto_pass.notifications
+src.auto_pass --> src.auto_pass.dbindex
 src.auto_pass --> src.auto_pass.envfile
 src.auto_pass --> src.auto_pass.keepassxc
 src.auto_pass.__main__ --> src.auto_pass.cli
