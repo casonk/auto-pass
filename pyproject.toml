@@ -10,9 +10,23 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-  {name = "Codex"},
+  {name = "Cason Konzer", email = "casonk@umich.edu"},
+]
+keywords = ["keepassxc", "password", "automation", "cli", "security"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: OS Independent",
+  "Topic :: Security",
+  "Topic :: Utilities",
+  "License :: OSI Approved :: MIT License",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/casonk/auto-pass"
+Repository = "https://github.com/casonk/auto-pass"
+Changelog = "https://github.com/casonk/auto-pass/blob/main/CHANGELOG.md"
 
 [project.scripts]
 auto-pass = "auto_pass.cli:main"
