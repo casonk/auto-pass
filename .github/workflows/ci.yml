@@ -20,6 +20,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
           pip install black==26.1.0 ruff==0.15.9
+          pip install pytest
           pip install git+https://github.com/casonk/dyno-lab.git
       - name: Check formatting (ruff format)
         run: ruff format --check .
@@ -29,4 +30,4 @@ jobs:
       - name: Smoke test CLI
         run: PYTHONPATH=src python -m auto_pass --help
       - name: Run unit tests
-        run: python -m unittest discover -s tests -v
+        run: pytest -q
