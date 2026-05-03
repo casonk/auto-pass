@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %} — Allowlist{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-3">
+  <h4 class="mb-0">Allowlist</h4>
+  <span class="text-muted small">{{ repos|length }} repo(s)</span>
+</div>
+
+<div class="row g-4">
+  <!-- Current repos -->
+  <div class="col-lg-7">
+    {% if repos %}
+    {% for repo_name, repo_cfg in repos.items()|sort %}
+    <div class="card mb-3" id="card-{{ repo_name }}">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="mono fw-bold">{{ repo_name }}</span>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-secondary" onclick="editRepo('{{ repo_name }}', {{ repo_cfg.allowed_paths | tojson }})">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRepo('{{ repo_name }}')">Delete</button>
+        </div>
+      </div>
+      <div class="card-body py-2">
+        {% for path in repo_cfg.get('allowed_paths', []) %}
+        <span class="badge bg-dark border mono me-1 mb-1">{{ path }}</span>
+        {% else %}
+        <span class="text-muted small">no paths configured</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="text-muted">No repos configured yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- Add / edit form -->
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header" id="form-title">Add repo</div>
+      <div class="card-body">
+        <div id="form-alert"></div>
+        <div class="mb-3">
+          <label class="form-label">Repo name <span class="text-muted small">(git remote basename)</span></label>
+          <input type="text" id="f-repo" class="form-control mono" placeholder="nordility">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Allowed paths <span class="text-muted small">(one per line, fnmatch globs ok)</span></label>
+          <textarea id="f-paths" class="form-control mono" rows="6" placeholder="vpn/provider#access-token&#10;infra/*"></textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" onclick="saveRepo()">Save</button>
+          <button class="btn btn-outline-secondary" onclick="clearForm()">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showAlert(ok, msg) {
+  const el = document.getElementById('form-alert');
+  el.innerHTML = `<div class="alert alert-${ok ? 'success' : 'danger'} py-2">${msg}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 5000);
+}
+
+function editRepo(name, paths) {
+  document.getElementById('f-repo').value = name;
+  document.getElementById('f-paths').value = paths.join('\n');
+  document.getElementById('form-title').textContent = 'Edit repo: ' + name;
+  document.getElementById('f-repo').focus();
+}
+
+function clearForm() {
+  document.getElementById('f-repo').value = '';
+  document.getElementById('f-paths').value = '';
+  document.getElementById('form-title').textContent = 'Add repo';
+}
+
+async function saveRepo() {
+  const fd = new FormData();
+  fd.append('repo_name', document.getElementById('f-repo').value);
+  fd.append('allowed_paths', document.getElementById('f-paths').value);
+  const r = await fetch('/allowlist/repo', {method:'POST', body: fd});
+  const j = await r.json();
+  if (j.ok) { location.reload(); } else { showAlert(false, j.error); }
+}
+
+async function deleteRepo(name) {
+  if (!confirm('Delete repo: ' + name + '?')) return;
+  const r = await fetch('/allowlist/repo/' + encodeURIComponent(name), {method:'DELETE'});
+  const j = await r.json();
+  if (j.ok) { location.reload(); } else { showAlert(false, j.error); }
+}
+</script>
+{% endblock %}
