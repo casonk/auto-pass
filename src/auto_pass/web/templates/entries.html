@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %} — Entries{% endblock %}
+
+{% block content %}
+<h4 class="mb-3">Entry Manager</h4>
+
+{% if not daemon.running or daemon.locked %}
+<div class="alert alert-warning">
+  The daemon must be running and unlocked to manage entries.
+  {% if daemon.running %}<a href="/daemon">Unlock it here.</a>{% endif %}
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <!-- Lookup -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Look up entry</div>
+      <div class="card-body">
+        <div class="input-group mb-3">
+          <input type="text" id="lookup-path" class="form-control mono" placeholder="web/github">
+          <button class="btn btn-outline-primary" onclick="lookupEntry()">Get</button>
+        </div>
+        <div id="lookup-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create / update -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Create / update entry</div>
+      <div class="card-body">
+        <div id="set-alert"></div>
+        <div class="mb-2">
+          <label class="form-label small">Entry path <span class="text-danger">*</span></label>
+          <input type="text" id="s-path" class="form-control mono" placeholder="web/github">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Username</label>
+          <input type="text" id="s-un" class="form-control mono">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Password</label>
+          <div class="input-group">
+            <input type="password" id="s-pw" class="form-control mono">
+            <button class="btn btn-outline-secondary" type="button" onclick="togglePw()">Show</button>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">URL</label>
+          <input type="text" id="s-url" class="form-control mono">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Notes</label>
+          <textarea id="s-notes" class="form-control mono" rows="3"></textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" onclick="setEntry()">Save</button>
+          <button class="btn btn-outline-secondary" onclick="clearSetForm()">Clear</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showSetAlert(ok, msg) {
+  const el = document.getElementById('set-alert');
+  el.innerHTML = `<div class="alert alert-${ok ? 'success' : 'danger'} py-2">${msg}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 5000);
+}
+
+async function lookupEntry() {
+  const path = document.getElementById('lookup-path').value.trim();
+  if (!path) return;
+  const fd = new FormData(); fd.append('entry_path', path);
+  const r = await fetch('/entries/get', {method:'POST', body: fd});
+  const j = await r.json();
+  const el = document.getElementById('lookup-result');
+  if (!j.ok) {
+    el.innerHTML = `<div class="alert alert-danger py-2">${j.error}</div>`;
+    return;
+  }
+  const rows = Object.entries(j.fields).map(([k, v]) => {
+    const safe = String(v).replace(/</g, '&lt;');
+    const isSecret = k.toLowerCase().includes('password') || k.toLowerCase().includes('token');
+    return `<tr><td class="mono text-muted">${k}</td><td class="mono">${isSecret ? '<span class="text-muted">[hidden]</span>' : safe}</td></tr>`;
+  }).join('');
+  el.innerHTML = `<table class="table table-sm table-bordered">${rows}</table>
+    <button class="btn btn-sm btn-outline-secondary" onclick="fillSetForm(${JSON.stringify(j.fields)}, '${path.replace(/'/g,"\\'")}')">Edit this entry</button>`;
+}
+
+function fillSetForm(fields, path) {
+  document.getElementById('s-path').value = path;
+  document.getElementById('s-un').value = fields['UserName'] || fields['username'] || '';
+  document.getElementById('s-pw').value = fields['Password'] || fields['password'] || '';
+  document.getElementById('s-url').value = fields['URL'] || fields['url'] || '';
+  document.getElementById('s-notes').value = fields['Notes'] || fields['notes'] || '';
+}
+
+async function setEntry() {
+  const path = document.getElementById('s-path').value.trim();
+  if (!path) { showSetAlert(false, 'Entry path is required.'); return; }
+  const fd = new FormData();
+  fd.append('entry_path', path);
+  fd.append('username', document.getElementById('s-un').value);
+  fd.append('password', document.getElementById('s-pw').value);
+  fd.append('url', document.getElementById('s-url').value);
+  fd.append('notes', document.getElementById('s-notes').value);
+  const r = await fetch('/entries/set', {method:'POST', body: fd});
+  const j = await r.json();
+  showSetAlert(j.ok, j.ok ? `Entry ${j.mode === 'add' ? 'created' : 'updated'}: ${path}` : j.error);
+}
+
+function clearSetForm() {
+  ['s-path','s-un','s-pw','s-url','s-notes'].forEach(id => document.getElementById(id).value = '');
+}
+
+function togglePw() {
+  const el = document.getElementById('s-pw');
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+</script>
+{% endblock %}

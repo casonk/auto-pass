@@ -1,0 +1,39 @@
+# Per-repo credential access allowlist for the auto-pass provisioning daemon.
+# Copy to provisioning-allowlist.local.toml and edit for your environment.
+#
+# Each [repos.<name>] block names a downstream git repository.
+# <name> must match the last component of the origin remote URL (without .git),
+# e.g. "nordility" for github.com/casonk/nordility.
+#
+# allowed_paths is a list of KeePassXC entry path globs (fnmatch syntax).
+# The daemon denies all requests from repos not listed here, and denies any
+# path that does not match at least one allowed_paths pattern.
+#
+# Run `auto-pass daemon-status` to verify the daemon is running and unlocked.
+# Run `auto-pass serve --allowlist config/provisioning-allowlist.local.toml` to start.
+
+[repos.nordility]
+# NordVPN credentials used by nordility when selecting a server.
+allowed_paths = [
+  "infra/nordvpn",
+]
+
+[repos.shock-relay]
+# Messaging service credentials for outbound notifications.
+allowed_paths = [
+  "messaging/gmail",
+  "messaging/twilio",
+  "messaging/signal",
+]
+
+[repos.snowbridge]
+# SMB share credentials for private file access.
+allowed_paths = [
+  "infra/smb/*",
+]
+
+[repos.intake]
+# Application-layer credentials used by the intake service.
+allowed_paths = [
+  "intake/*",
+]

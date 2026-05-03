@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %} — Audit Log{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3 gap-3">
+  <h4 class="mb-0">Audit Log</h4>
+  <button class="btn btn-sm btn-outline-secondary" onclick="refreshEvents()">Refresh</button>
+  <span class="text-muted small" id="event-count"></span>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-sm table-hover align-middle" id="audit-table">
+    <thead class="table-dark sticky-top">
+      <tr>
+        <th>Timestamp</th>
+        <th>Repo</th>
+        <th>Entry path</th>
+        <th>Field</th>
+        <th>PID</th>
+      </tr>
+    </thead>
+    <tbody id="audit-body">
+      {% for e in events %}
+      <tr>
+        <td class="mono text-nowrap">{{ e.ts }}</td>
+        <td><span class="badge bg-secondary">{{ e.repo }}</span></td>
+        <td class="mono entry-path" title="{{ e.path }}">{{ e.path }}</td>
+        <td class="mono">{{ e.field }}</td>
+        <td class="mono text-muted">{{ e.pid }}</td>
+      </tr>
+      {% else %}
+      <tr id="empty-row"><td colspan="5" class="text-muted text-center py-4">No events yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function refreshEvents() {
+  const resp = await fetch('/audit/events?limit=200');
+  const events = await resp.json();
+  document.getElementById('event-count').textContent = events.length + ' events';
+  const tbody = document.getElementById('audit-body');
+  if (!events.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4">No events yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = events.map(e => `
+    <tr>
+      <td class="mono text-nowrap">${e.ts}</td>
+      <td><span class="badge bg-secondary">${e.repo}</span></td>
+      <td class="mono entry-path" title="${e.path}">${e.path}</td>
+      <td class="mono">${e.field}</td>
+      <td class="mono text-muted">${e.pid}</td>
+    </tr>`).join('');
+}
+document.getElementById('event-count').textContent = '{{ events|length }} events';
+</script>
+{% endblock %}

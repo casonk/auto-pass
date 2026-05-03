@@ -6,8 +6,10 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from getpass import getpass
 from pathlib import Path
@@ -18,6 +20,43 @@ from .notifications import (
 )
 
 log = logging.getLogger(__name__)
+
+_keepass_env_lock = threading.Lock()
+
+
+@contextmanager
+def with_keepassxc_context(db_path: str, db_password: str, key_file: str = ""):
+    """Context manager that temporarily sets KeePassXC env vars under a process-wide lock.
+
+    Restores previous values on exit. Use this when calling existing env-resolution
+    functions (resolve_keepassxc_entry_all_fields, upsert_keepassxc_entry) with
+    explicit credentials from a multi-threaded context such as the web server.
+    """
+    _keepass_env_lock.acquire()
+    prev = {
+        k: os.environ.get(k)
+        for k in (
+            "AUTO_PASS_KEEPASSXC_DB_PATH",
+            "AUTO_PASS_KEEPASSXC_DB_PASSWORD",
+            "AUTO_PASS_KEEPASSXC_KEY_FILE",
+        )
+    }
+    try:
+        os.environ["AUTO_PASS_KEEPASSXC_DB_PATH"] = db_path
+        os.environ["AUTO_PASS_KEEPASSXC_DB_PASSWORD"] = db_password
+        if key_file:
+            os.environ["AUTO_PASS_KEEPASSXC_KEY_FILE"] = key_file
+        else:
+            os.environ.pop("AUTO_PASS_KEEPASSXC_KEY_FILE", None)
+        yield
+    finally:
+        for key, value in prev.items():
+            if value is not None:
+                os.environ[key] = value
+            else:
+                os.environ.pop(key, None)
+        _keepass_env_lock.release()
+
 
 ATTRIBUTE_ALIASES = {
     "title": "Title",
@@ -373,6 +412,99 @@ def resolve_keepassxc_entry_all_fields(
     except PasswordRetrievalNotificationError as exc:
         log.warning("password-retrieval notification failed (non-fatal): %s", exc)
     return fields
+
+
+def validate_keepassxc_database(
+    db_path: str,
+    db_password: str,
+    key_file: str = "",
+) -> bool:
+    """Return True if db_password successfully opens db_path.
+
+    Runs keepassxc-cli ls as a lightweight probe — used by the
+    provisioning server to validate the password at unlock time.
+    """
+    cmd = ["keepassxc-cli", "ls"]
+    if key_file:
+        cmd.extend(["-k", key_file])
+    cmd.append(db_path)
+    try:
+        result = subprocess.run(
+            cmd,
+            input=db_password + "\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def run_keepassxc_show_direct(
+    entry: str,
+    attrs_map: Mapping[str, str],
+    *,
+    db_path: str,
+    db_password: str,
+    key_file: str = "",
+) -> dict[str, str]:
+    """Retrieve entry fields with explicitly supplied credentials.
+
+    Unlike resolve_keepassxc_entry, this function performs no env-var
+    lookup, no interactive prompt, and fires no notification side-effects.
+    It is intended for use by the provisioning server, which holds
+    credentials in memory and enforces access control before calling here.
+    """
+    entry = str(entry or "").strip()
+    if not entry:
+        raise KeepassCommandError("KeePassXC entry is required.")
+    if not attrs_map:
+        raise KeepassCommandError("attrs_map must be a non-empty mapping.")
+    if not db_path:
+        raise KeepassCommandError("db_path is required.")
+    if not db_password:
+        raise KeepassCommandError("db_password is required.")
+
+    context = ResolvedKeepassContext(
+        db_path=db_path,
+        db_password=db_password,
+        key_file=key_file,
+        password_env_name="",
+        interactive_allowed=False,
+    )
+    requested_attrs = [str(v).strip() for v in attrs_map.values()]
+    resolved_by_requested = {v: normalize_keepass_attribute_name(v) for v in requested_attrs}
+    attr_order = list(dict.fromkeys(resolved_by_requested.values()))
+
+    cmd = ["keepassxc-cli", "show", "-s"]
+    for attr in attr_order:
+        cmd.extend(["-a", attr])
+    if key_file:
+        cmd.extend(["-k", key_file])
+    cmd.extend([db_path, entry])
+
+    result = _run_keepass_command(cmd, context=context)
+    if result.returncode != 0:
+        _raise_keepass_error(result, target=entry, context=context)
+
+    lines = [line.rstrip("\n") for line in str(result.stdout or "").splitlines()]
+    if len(lines) < len(attr_order):
+        raise KeepassCommandError(
+            f"keepassxc-cli returned {len(lines)} attributes, expected "
+            f"{len(attr_order)} for entry {entry!r}."
+        )
+
+    raw_values = {attr_order[i]: lines[i] for i in range(len(attr_order))}
+    resolved: dict[str, str] = {}
+    for logical_name, attr_name in attrs_map.items():
+        requested = str(attr_name).strip()
+        keepass_attr = resolved_by_requested.get(
+            requested, normalize_keepass_attribute_name(requested)
+        )
+        resolved[str(logical_name)] = raw_values.get(keepass_attr, "")
+    return resolved
 
 
 def _entry_parent_group(entry: str) -> str:

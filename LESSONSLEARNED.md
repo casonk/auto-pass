@@ -40,6 +40,16 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   credentials through `auto-pass`, add an explicit suppression guard so
   notification or audit hooks do not recurse through sibling repos like
   `shock-relay`.
+- **Backlog — provisioning service hardening**: The `admin_context` daemon op
+  (used by `auto-pass web` to get the master password for direct KeePassXC
+  writes) currently gates only on caller UID == daemon owner UID. It should
+  additionally verify that `resolve_caller_repo(pid) == "auto-pass"` (i.e.
+  the caller is running from within the auto-pass repo) before returning
+  credentials. Without this, any process running as the same UID can request
+  the master password if it knows the socket path. Implement by adding an
+  `admin_repos` list to the allowlist TOML (e.g. `admin_repos = ["auto-pass"]`)
+  and checking it in `ProvisioningServer.handle_request` for the `admin_context`
+  op.
 - For downstream consumers that need multiple vaults, keep a local gitignored
   DB alias index (for example `config/keepass-dbs.local.json`) alongside the
   env/profile file. Let aliases map to vault paths plus optional password-source
