@@ -9,6 +9,8 @@ config/*.env.local
 config/*.env.local.pre-*
 config/*.local.json
 config/*.local.yaml
+config/*.local.toml
+config/clockwork/*.local.toml
 CHATHISTORY.md
 .codex
 

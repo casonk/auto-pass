@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %} — Daemon{% endblock %}
+
+{% block content %}
+<h4 class="mb-3">Daemon Control</h4>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <h6 class="card-subtitle text-muted mb-2">Status</h6>
+        {% if daemon.running %}
+          {% if daemon.locked %}
+            <span class="badge bg-danger fs-6">Locked</span>
+          {% else %}
+            <span class="badge bg-success fs-6">Unlocked</span>
+          {% endif %}
+        {% else %}
+          <span class="badge bg-secondary fs-6">Not running</span>
+        {% endif %}
+        <div class="mt-2 text-muted small">Socket: {{ socket_path }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if daemon.running %}
+<div class="row g-3">
+  {% if daemon.locked %}
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header">Unlock daemon</div>
+      <div class="card-body">
+        <div id="unlock-alert"></div>
+        <div class="mb-3">
+          <label class="form-label">KeePassXC master password</label>
+          <input type="password" id="unlock-pw" class="form-control">
+        </div>
+        <button class="btn btn-success" onclick="doUnlock()">Unlock</button>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">Lock daemon</div>
+      <div class="card-body">
+        <p class="text-muted small">Clears the master password from memory. Downstream repos will be denied until unlocked again.</p>
+        <div id="lock-alert"></div>
+        <button class="btn btn-danger" onclick="doLock()">Lock now</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">Reload allowlist</div>
+      <div class="card-body">
+        <p class="text-muted small">Re-reads config/provisioning-allowlist.local.toml without restarting the daemon.</p>
+        <div id="reload-alert"></div>
+        <button class="btn btn-outline-secondary" onclick="doReload()">Reload</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showAlert(id, ok, msg) {
+  const el = document.getElementById(id);
+  el.innerHTML = `<div class="alert alert-${ok ? 'success' : 'danger'} py-2 mt-2">${msg}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 4000);
+}
+
+async function doUnlock() {
+  const pw = document.getElementById('unlock-pw').value;
+  const fd = new FormData(); fd.append('password', pw);
+  const r = await fetch('/daemon/unlock', {method:'POST', body: fd});
+  const j = await r.json();
+  if (j.ok) { location.reload(); } else { showAlert('unlock-alert', false, j.error); }
+}
+
+async function doLock() {
+  const r = await fetch('/daemon/lock', {method:'POST'});
+  const j = await r.json();
+  if (j.ok) { location.reload(); } else { showAlert('lock-alert', false, j.error); }
+}
+
+async function doReload() {
+  const r = await fetch('/daemon/reload', {method:'POST'});
+  const j = await r.json();
+  showAlert('reload-alert', j.ok, j.ok ? 'Allowlist reloaded.' : j.error);
+}
+</script>
+{% endblock %}
