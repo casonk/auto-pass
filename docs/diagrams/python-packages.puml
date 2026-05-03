@@ -3,20 +3,38 @@ set namespaceSeparator none
 top to bottom direction
 skinparam componentStyle rectangle
 rectangle "conftest\n1 python file" as conftest
-rectangle "src.auto_pass\n0 child pkg, 6 modules\n7 python files\nexamples: __main__, cli, dbindex" as src.auto_pass
+rectangle "src.auto_pass\n1 child pkg, 9 modules\n14 python files\nexamples: __main__, allowlist, cli" as src.auto_pass
 rectangle "src.auto_pass.__main__\n1 python file" as src.auto_pass.__main__
+rectangle "src.auto_pass.allowlist\n1 python file" as src.auto_pass.allowlist
 rectangle "src.auto_pass.cli\n1 python file" as src.auto_pass.cli
+rectangle "src.auto_pass.client\n1 python file" as src.auto_pass.client
 rectangle "src.auto_pass.dbindex\n1 python file" as src.auto_pass.dbindex
 rectangle "src.auto_pass.envfile\n1 python file" as src.auto_pass.envfile
 rectangle "src.auto_pass.keepassxc\n1 python file" as src.auto_pass.keepassxc
 rectangle "src.auto_pass.notifications\n1 python file" as src.auto_pass.notifications
+rectangle "src.auto_pass.server\n1 python file" as src.auto_pass.server
+rectangle "src.auto_pass.web\n0 child pkg, 3 modules\n4 python files\nexamples: app, audit, auth" as src.auto_pass.web
+rectangle "src.auto_pass.web.app\n1 python file" as src.auto_pass.web.app
+rectangle "src.auto_pass.web.audit\n1 python file" as src.auto_pass.web.audit
+rectangle "src.auto_pass.web.auth\n1 python file" as src.auto_pass.web.auth
 src.auto_pass --> src.auto_pass.dbindex
 src.auto_pass --> src.auto_pass.envfile
 src.auto_pass --> src.auto_pass.keepassxc
 src.auto_pass.__main__ --> src.auto_pass.cli
+src.auto_pass.cli --> src.auto_pass.allowlist
+src.auto_pass.cli --> src.auto_pass.client
+src.auto_pass.cli --> src.auto_pass.dbindex
 src.auto_pass.cli --> src.auto_pass.envfile
 src.auto_pass.cli --> src.auto_pass.keepassxc
+src.auto_pass.cli --> src.auto_pass.server
+src.auto_pass.cli --> src.auto_pass.web.app
+src.auto_pass.cli --> src.auto_pass.web.auth
 src.auto_pass.keepassxc --> src.auto_pass.notifications
 src.auto_pass.notifications --> src.auto_pass.envfile
 src.auto_pass.notifications --> src.auto_pass.keepassxc
+src.auto_pass.server --> src.auto_pass.allowlist
+src.auto_pass.server --> src.auto_pass.dbindex
+src.auto_pass.server --> src.auto_pass.keepassxc
+src.auto_pass.web.app --> src.auto_pass.web.audit
+src.auto_pass.web.app --> src.auto_pass.web.auth
 @enduml

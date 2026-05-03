@@ -1,5 +1,15 @@
 @startuml classes_auto-pass
 set namespaceSeparator none
+class "AllowlistEnforcer" as src.auto_pass.allowlist.AllowlistEnforcer {
+  is_permitted(repo_id: str, db: str, entry_path: str) -> bool
+  known_repos() -> list[str]
+  permitted_paths(repo_id: str, db: str) -> list[str]
+  reload() -> None
+  repo_default_db(repo_id: str) -> Optional[str]
+  repo_vaults(repo_id: str) -> list[str]
+}
+class "<color:red>AllowlistError</color>" as src.auto_pass.allowlist.AllowlistError {
+}
 class "<color:red>DatabaseIndexError</color>" as src.auto_pass.dbindex.DatabaseIndexError {
 }
 class "<color:red>EnvFileError</color>" as src.auto_pass.envfile.EnvFileError {
@@ -26,6 +36,24 @@ class "PasswordRetrievalNotificationConfig" as src.auto_pass.notifications.Passw
   subject_prefix : str
 }
 class "<color:red>PasswordRetrievalNotificationError</color>" as src.auto_pass.notifications.PasswordRetrievalNotificationError {
+}
+class "ProvisioningClient" as src.auto_pass.client.ProvisioningClient {
+  admin_context() -> dict
+  get(entry_path: str, field: str, db: Optional[str]) -> str
+  is_running() -> bool
+  lock() -> None
+  reload() -> None
+  status() -> dict
+  unlock(password: str) -> None
+}
+class "<color:red>ProvisioningClientError</color>" as src.auto_pass.client.ProvisioningClientError {
+}
+class "ProvisioningServer" as src.auto_pass.server.ProvisioningServer {
+  is_unlocked : bool
+  handle_request(request: dict, caller_pid: int, caller_uid: int) -> dict
+  lock() -> None
+  serve() -> None
+  unlock(password: str) -> bool
 }
 class "ResolvedKeepassContext" as src.auto_pass.keepassxc.ResolvedKeepassContext {
   db_password : str
