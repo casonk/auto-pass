@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import getpass
+import json
 import os
 import re
 import socket
@@ -27,6 +28,13 @@ PASSWORD_RETRIEVAL_NOTIFY_SUBJECT_PREFIX_ENV = "AUTO_PASS_NOTIFY_PASSWORD_RETRIE
 SHOCK_RELAY_ROOT_ENV = "AUTO_PASS_NOTIFY_SHOCK_RELAY_ROOT"
 SHOCK_RELAY_EMAIL_CONFIG_ENV = "AUTO_PASS_NOTIFY_SHOCK_RELAY_EMAIL_CONFIG"
 SHOCK_RELAY_SIGNAL_CONFIG_ENV = "AUTO_PASS_NOTIFY_SHOCK_RELAY_SIGNAL_CONFIG"
+# When set to a truthy value, per-retrieval email/signal sends are disabled and
+# each retrieval is appended to a JSONL log file instead.  Run
+# `auto-pass notify-summary` (or schedule it daily) to send a digest and clear
+# the log.  The per-retrieval code paths remain in place but are bypassed.
+DAILY_SUMMARY_ENV = "AUTO_PASS_NOTIFY_DAILY_SUMMARY"
+# Optional override for the log file path used in daily summary mode.
+DAILY_LOG_PATH_ENV = "AUTO_PASS_NOTIFY_DAILY_LOG_PATH"
 
 
 class PasswordRetrievalNotificationError(RuntimeError):
@@ -246,6 +254,161 @@ def _run_signal_note_to_self(
     )
 
 
+def _daily_log_file() -> Path:
+    cache_dir = Path.home() / ".cache" / "auto-pass"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir / "retrieval_log.jsonl"
+
+
+def _resolve_daily_log_path(environ: MutableMapping[str, str]) -> Path:
+    raw = str(environ.get(DAILY_LOG_PATH_ENV, "")).strip()
+    return Path(raw).expanduser() if raw else _daily_log_file()
+
+
+def _log_retrieval(
+    *,
+    entry: str,
+    requested_attributes: list[str],
+    context: ResolvedKeepassContext,
+    environ: MutableMapping[str, str],
+    log_path: Path,
+) -> None:
+    profile = get_active_keepass_profile(environ=environ) or "direct"
+    timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+    record = {
+        "entry": entry,
+        "profile": profile,
+        "database": Path(context.db_path).name,
+        "fields": requested_attributes,
+        "user": getpass.getuser(),
+        "host": socket.gethostname(),
+        "pid": os.getpid(),
+        "timestamp": timestamp,
+    }
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(record) + "\n")
+    except OSError:
+        pass
+
+
+def _read_retrieval_log(log_path: Path) -> list[dict]:
+    if not log_path.exists():
+        return []
+    records: list[dict] = []
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return records
+
+
+def _build_summary_body(records: list[dict], subject_prefix: str) -> tuple[str, str]:
+    """Return (subject, body) for a daily-summary notification."""
+    count = len(records)
+    date_str = records[0].get("timestamp", "")[:10] if records else ""
+    date_label = f" on {date_str}" if date_str else ""
+    lines = [f"Daily auto-pass summary: {count} password retrieval(s){date_label}", ""]
+    for r in records:
+        ts = r.get("timestamp", "")
+        ent = r.get("entry", "")
+        db = r.get("database", "")
+        fields = ", ".join(r.get("fields", []))
+        host = r.get("host", "")
+        pid = r.get("pid", "")
+        lines.append(f"  {ts}  {ent}  {db}  {fields}  host:{host}  pid:{pid}")
+    subject = f"{subject_prefix} Daily summary: {count} retrieval(s){date_label}"
+    return subject, "\n".join(lines)
+
+
+def send_daily_summary(
+    *,
+    environ: MutableMapping[str, str] | None = None,
+    log_path: Path | None = None,
+) -> int:
+    """Send a digest of all logged retrievals and clear the log.
+
+    Returns the number of records sent (0 when the log is empty — nothing sent).
+    Raises :class:`PasswordRetrievalNotificationError` if the send fails.
+    """
+    env = os.environ if environ is None else environ
+    path = log_path or _resolve_daily_log_path(env)
+    records = _read_retrieval_log(path)
+    if not records:
+        return 0
+
+    config = _load_notification_config(env)
+    if not config.shock_relay_root.is_dir():
+        raise PasswordRetrievalNotificationError(
+            "password-retrieval notifications are enabled but "
+            f"{config.shock_relay_root} is not a shock-relay checkout"
+        )
+    if not config.email_to and not config.signal_to:
+        raise PasswordRetrievalNotificationError(
+            "no email or signal recipient configured for daily summary"
+        )
+
+    subject, body = _build_summary_body(records, config.subject_prefix)
+
+    errors: list[str] = []
+    if config.email_to:
+        email_script = config.shock_relay_root / "services/gmail-imap/send_email.py"
+        try:
+            _run_relay_command(
+                channel="email",
+                cmd=[
+                    sys.executable,
+                    str(email_script),
+                    "--config",
+                    str(config.email_config_path),
+                    config.email_to,
+                    subject,
+                    body,
+                ],
+                config=config,
+                environ=env,
+            )
+        except PasswordRetrievalNotificationError as exc:
+            errors.append(str(exc))
+
+    if config.signal_to:
+        try:
+            if _is_signal_note_to_self(config.signal_to):
+                _run_signal_note_to_self(config=config, body=body, environ=env)
+            else:
+                signal_script = config.shock_relay_root / "services/signal-cli/send_message.py"
+                _run_relay_command(
+                    channel="signal",
+                    cmd=[
+                        sys.executable,
+                        str(signal_script),
+                        "--config",
+                        str(config.signal_config_path),
+                        config.signal_to,
+                        body,
+                    ],
+                    config=config,
+                    environ=env,
+                )
+        except PasswordRetrievalNotificationError as exc:
+            errors.append(str(exc))
+
+    if errors:
+        raise PasswordRetrievalNotificationError("; ".join(errors))
+
+    try:
+        path.write_text("", encoding="utf-8")
+    except OSError:
+        pass
+
+    return len(records)
+
+
 def maybe_notify_password_retrieval(
     *,
     entry: str,
@@ -263,6 +426,18 @@ def maybe_notify_password_retrieval(
     if "Password" not in normalized_requested:
         return
 
+    # Daily summary mode: log this retrieval for batch delivery; skip immediate send.
+    if _is_truthy(env.get(DAILY_SUMMARY_ENV, "")):
+        _log_retrieval(
+            entry=entry,
+            requested_attributes=normalized_requested,
+            context=context,
+            environ=env,
+            log_path=_resolve_daily_log_path(env),
+        )
+        return
+
+    # Per-retrieval mode: apply throttle and send immediately.
     try:
         every_n = max(1, int(env.get(PASSWORD_RETRIEVAL_NOTIFY_EVERY_N_ENV, "1") or "1"))
     except ValueError:

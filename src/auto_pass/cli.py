@@ -232,6 +232,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Unix socket path for the daemon.",
     )
 
+    subparsers.add_parser(
+        "notify-summary",
+        help=(
+            "Send a daily summary of logged password retrievals and clear the log. "
+            "Requires AUTO_PASS_NOTIFY_DAILY_SUMMARY=1 and a configured recipient."
+        ),
+    )
+
     web_parser = subparsers.add_parser(
         "web",
         help="Start the web UI (requires: pip install 'auto-pass[web]').",
@@ -342,6 +350,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "provision-get":
         return _cmd_provision_get(args)
+
+    if args.command == "notify-summary":
+        return _cmd_notify_summary(args)
 
     if args.command == "web":
         return _cmd_web(args)
@@ -531,6 +542,19 @@ def _cmd_web(args: argparse.Namespace) -> int:
 
     print(f"auto-pass web UI on http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    return 0
+
+
+def _cmd_notify_summary(args: argparse.Namespace) -> int:  # noqa: ARG001
+    from .notifications import PasswordRetrievalNotificationError, send_daily_summary
+
+    try:
+        count = send_daily_summary()
+    except PasswordRetrievalNotificationError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if count > 0:
+        print(f"Sent summary of {count} retrieval(s).")
     return 0
 
 
