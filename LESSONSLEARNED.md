@@ -56,3 +56,14 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   entries in another vault so sibling repos can resolve split-vault access
   without hardcoding local `.kdbx` paths or duplicating secondary-vault
   passwords in repo-specific config.
+
+### Invoking auto-pass from outside its repo root
+
+- `auto-pass get ...` looks for `config/auto-pass.env.local` relative to the shell's CWD.
+  Running it from any directory other than the auto-pass repo root causes it to silently
+  return empty output instead of an error.
+- Always pass `--env-file /path/to/auto-pass/config/auto-pass.env.local` when invoking
+  auto-pass from automation scripts or from a different working directory.
+- Do not suppress stderr with `2>/dev/null` without also validating that the returned
+  value is non-empty; an empty PAT stored as a GitHub secret will fail just as the
+  original missing secret did.
