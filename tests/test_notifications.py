@@ -10,6 +10,8 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from auto_pass.notifications import (
+    DAILY_LOG_PATH_ENV,
+    DAILY_SUMMARY_ENV,
     PASSWORD_RETRIEVAL_NOTIFY_EMAIL_TO_ENV,
     PASSWORD_RETRIEVAL_NOTIFY_ENV,
     PASSWORD_RETRIEVAL_NOTIFY_EVERY_N_ENV,
@@ -18,7 +20,9 @@ from auto_pass.notifications import (
     SHOCK_RELAY_ROOT_ENV,
     PasswordRetrievalNotificationError,
     _read_and_increment_counter,
+    _read_retrieval_log,
     maybe_notify_password_retrieval,
+    send_daily_summary,
 )
 
 
@@ -196,6 +200,137 @@ class NotificationsTests(unittest.TestCase):
                 )
 
         self.assertIn("no email or signal recipient", str(exc.exception))
+
+
+class DailySummaryTests(unittest.TestCase):
+    def _context(self):
+        return type(
+            "Context",
+            (),
+            {
+                "db_path": "/vaults/infra.kdbx",
+                "key_file": "",
+                "db_password": "secret",
+                "password_env_name": "AUTO_PASS_KEEPASSXC_DB_PASSWORD",
+                "interactive_allowed": False,
+            },
+        )()
+
+    def test_daily_summary_mode_logs_to_file_instead_of_sending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = Path(tmp) / "retrieval_log.jsonl"
+            env = {
+                PASSWORD_RETRIEVAL_NOTIFY_ENV: "1",
+                DAILY_SUMMARY_ENV: "1",
+                DAILY_LOG_PATH_ENV: str(log_path),
+                PASSWORD_RETRIEVAL_NOTIFY_EMAIL_TO_ENV: "alerts@example.test",
+                SHOCK_RELAY_ROOT_ENV: tmp,
+            }
+            with patch("auto_pass.notifications.subprocess.run") as run:
+                maybe_notify_password_retrieval(
+                    entry="svc/example",
+                    requested_attributes=["Password"],
+                    context=self._context(),
+                    environ=env,
+                )
+            run.assert_not_called()
+            records = _read_retrieval_log(log_path)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["entry"], "svc/example")
+        self.assertEqual(records[0]["database"], "infra.kdbx")
+
+    def test_daily_summary_bypasses_throttle(self):
+        """Every retrieval is logged in daily mode even when every_n > 1."""
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = Path(tmp) / "retrieval_log.jsonl"
+            env = {
+                PASSWORD_RETRIEVAL_NOTIFY_ENV: "1",
+                DAILY_SUMMARY_ENV: "1",
+                DAILY_LOG_PATH_ENV: str(log_path),
+                PASSWORD_RETRIEVAL_NOTIFY_EVERY_N_ENV: "5",
+                PASSWORD_RETRIEVAL_NOTIFY_EMAIL_TO_ENV: "alerts@example.test",
+                SHOCK_RELAY_ROOT_ENV: tmp,
+            }
+            with patch("auto_pass.notifications.subprocess.run"):
+                for _ in range(3):
+                    maybe_notify_password_retrieval(
+                        entry="svc/example",
+                        requested_attributes=["Password"],
+                        context=self._context(),
+                        environ=env,
+                    )
+            records = _read_retrieval_log(log_path)
+        self.assertEqual(len(records), 3)
+
+    def test_send_daily_summary_sends_digest_and_clears_log(self):
+        import json as _json
+
+        with tempfile.TemporaryDirectory() as tmp:
+            shock_relay_root = Path(tmp) / "shock-relay"
+            email_script = shock_relay_root / "services/gmail-imap/send_email.py"
+            email_script.parent.mkdir(parents=True, exist_ok=True)
+            email_script.write_text("", encoding="utf-8")
+            log_path = Path(tmp) / "retrieval_log.jsonl"
+            log_path.write_text(
+                _json.dumps(
+                    {
+                        "entry": "svc/a",
+                        "profile": "infra",
+                        "database": "infra.kdbx",
+                        "fields": ["Password"],
+                        "user": "u",
+                        "host": "h",
+                        "pid": 1,
+                        "timestamp": "2026-05-05T10:00:00-04:00",
+                    }
+                )
+                + "\n"
+                + _json.dumps(
+                    {
+                        "entry": "svc/b",
+                        "profile": "infra",
+                        "database": "infra.kdbx",
+                        "fields": ["Password"],
+                        "user": "u",
+                        "host": "h",
+                        "pid": 2,
+                        "timestamp": "2026-05-05T11:00:00-04:00",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            captured: list[list[str]] = []
+
+            def fake_run(cmd, **kwargs):
+                captured.append(list(cmd))
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+            env = {
+                PASSWORD_RETRIEVAL_NOTIFY_EMAIL_TO_ENV: "alerts@example.test",
+                SHOCK_RELAY_ROOT_ENV: str(shock_relay_root),
+            }
+            with patch("auto_pass.notifications.subprocess.run", side_effect=fake_run):
+                count = send_daily_summary(environ=env, log_path=log_path)
+
+            self.assertEqual(count, 2)
+            self.assertEqual(len(captured), 1)
+            email_cmd = captured[0]
+            self.assertIn("Daily summary: 2 retrieval(s)", email_cmd[5])
+            self.assertIn("svc/a", email_cmd[6])
+            self.assertIn("svc/b", email_cmd[6])
+            self.assertEqual(log_path.read_text(encoding="utf-8"), "")
+
+    def test_send_daily_summary_empty_log_is_noop(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = Path(tmp) / "empty.jsonl"
+            with patch("auto_pass.notifications.subprocess.run") as run:
+                count = send_daily_summary(
+                    environ={SHOCK_RELAY_ROOT_ENV: tmp},
+                    log_path=log_path,
+                )
+            run.assert_not_called()
+        self.assertEqual(count, 0)
 
 
 class CounterThrottleTests(unittest.TestCase):
