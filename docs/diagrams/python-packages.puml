@@ -26,6 +26,7 @@ src.auto_pass.cli --> src.auto_pass.client
 src.auto_pass.cli --> src.auto_pass.dbindex
 src.auto_pass.cli --> src.auto_pass.envfile
 src.auto_pass.cli --> src.auto_pass.keepassxc
+src.auto_pass.cli --> src.auto_pass.notifications
 src.auto_pass.cli --> src.auto_pass.server
 src.auto_pass.cli --> src.auto_pass.web.app
 src.auto_pass.cli --> src.auto_pass.web.auth
