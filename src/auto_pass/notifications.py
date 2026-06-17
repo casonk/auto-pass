@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import getpass
 import json
 import os
@@ -401,10 +402,8 @@ def send_daily_summary(
     if errors:
         raise PasswordRetrievalNotificationError("; ".join(errors))
 
-    try:
+    with contextlib.suppress(OSError):
         path.write_text("", encoding="utf-8")
-    except OSError:
-        pass
 
     return len(records)
 
