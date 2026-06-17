@@ -6,16 +6,15 @@ import os
 import subprocess
 import tomllib
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
 _PROVISION_ALLOWLIST_ENV = "AUTO_PASS_PROVISIONING_ALLOWLIST"
 
-_repo_root_cache: dict[Path, Optional[str]] = {}
+_repo_root_cache: dict[Path, str | None] = {}
 
 
-def _git_remote_name(repo_root: Path) -> Optional[str]:
+def _git_remote_name(repo_root: Path) -> str | None:
     try:
         result = subprocess.run(
             ["git", "-C", str(repo_root), "remote", "get-url", "origin"],
@@ -33,7 +32,7 @@ def _git_remote_name(repo_root: Path) -> Optional[str]:
         return None
 
 
-def _find_git_root(start: Path) -> Optional[Path]:
+def _find_git_root(start: Path) -> Path | None:
     candidate = start.resolve()
     while True:
         if (candidate / ".git").exists():
@@ -44,7 +43,7 @@ def _find_git_root(start: Path) -> Optional[Path]:
         candidate = parent
 
 
-def resolve_caller_repo(pid: int) -> Optional[str]:
+def resolve_caller_repo(pid: int) -> str | None:
     """Return the git repo name for the process with the given PID.
 
     Reads /proc/<pid>/cwd, walks up to the git root, and returns the
@@ -78,16 +77,16 @@ class AllowlistEnforcer:
     **Simple form** (single vault per repo)::
 
         [repos.nordility]
-        db = "infra"
+        db = "your-vault"
         allowed_paths = ["vpn/provider#access-token"]
 
     **Multi-vault form** (repo accesses more than one database)::
 
         [repos.shock-relay.vaults.master]
-        allowed_paths = ["casonkonzer@gmail.com#imap-fedora@intake"]
+        allowed_paths = ["user@example.com#imap-service"]
 
-        [repos.shock-relay.vaults.infra]
-        allowed_paths = ["Twilio/Twilio#API-Main", "Twilio/Twilio#Token"]
+        [repos.shock-relay.vaults.your-vault]
+        allowed_paths = ["messaging/provider#api-key", "messaging/provider#token"]
 
     ``is_permitted(repo_id, db, entry_path)`` returns True iff the given
     (repo, vault, entry) triple matches the allowlist.  When the client
@@ -133,7 +132,7 @@ class AllowlistEnforcer:
             return False
         return any(fnmatch.fnmatch(entry_path, p) for p in vault.get("allowed_paths", []))
 
-    def repo_default_db(self, repo_id: str) -> Optional[str]:
+    def repo_default_db(self, repo_id: str) -> str | None:
         """Return the single-vault DB alias for simple-form repos, else None."""
         repo = self._repos.get(repo_id)
         if not repo:

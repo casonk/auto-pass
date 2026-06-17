@@ -498,6 +498,7 @@ def _cmd_daemon_status(args: argparse.Namespace) -> int:
 def _cmd_web(args: argparse.Namespace) -> int:
     try:
         import uvicorn
+
         from .web.app import app
     except ImportError:
         print(
@@ -514,9 +515,11 @@ def _cmd_web(args: argparse.Namespace) -> int:
         from .client import ProvisioningClient, ProvisioningClientError
 
         try:
-            token = ProvisioningClient().get("auto-pass/web-token", db="infra")
+            _entry = os.environ.get("AUTO_PASS_WEB_TOKEN_KEEPASS_ENTRY", "auto-pass/web-token")
+            _db = os.environ.get("AUTO_PASS_WEB_TOKEN_KEEPASS_DB") or None
+            token = ProvisioningClient().get(_entry, db=_db)
             if not token:
-                raise RuntimeError("daemon returned empty web token from infra vault")
+                raise RuntimeError("daemon returned empty web token")
             os.environ["AUTO_PASS_WEB_TOKEN"] = token
         except (OSError, ProvisioningClientError) as exc:
             print(
