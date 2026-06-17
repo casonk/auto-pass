@@ -58,8 +58,8 @@ class TestProvisioningClientGet:
 
         _mock_server(sock_path, handler)
         client = ProvisioningClient(socket_path=sock_path)
-        client.get("infra/nordvpn", field="username")
-        assert captured[0] == {"op": "get", "path": "infra/nordvpn", "field": "username"}
+        client.get("vpn/provider", field="username")
+        assert captured[0] == {"op": "get", "path": "vpn/provider", "field": "username"}
 
     def test_get_error_response_raises(self, tmp_path):
         sock_path = tmp_path / "test.sock"
