@@ -3,7 +3,7 @@
 #
 # Each [repos.<name>] block names a downstream git repository.
 # <name> must match the last component of the origin remote URL (without .git),
-# e.g. "nordility" for github.com/casonk/nordility.
+# e.g. "nordility" for github.com/your-account/nordility.
 #
 # allowed_paths is a list of KeePassXC entry path globs (fnmatch syntax).
 # The daemon denies all requests from repos not listed here, and denies any
@@ -13,27 +13,27 @@
 # Run `auto-pass serve --allowlist config/provisioning-allowlist.local.toml` to start.
 
 [repos.nordility]
-# NordVPN credentials used by nordility when selecting a server.
+# VPN credentials used by nordility when selecting a server.
 allowed_paths = [
-  "infra/nordvpn",
+  "your-vault/vpn-service",
 ]
 
 [repos.shock-relay]
 # Messaging service credentials for outbound notifications.
 allowed_paths = [
-  "messaging/gmail",
-  "messaging/twilio",
-  "messaging/signal",
+  "your-vault/email-service",
+  "your-vault/messaging-service",
+  "your-vault/messaging-signal",
 ]
 
 [repos.snowbridge]
 # SMB share credentials for private file access.
 allowed_paths = [
-  "infra/smb/*",
+  "your-vault/smb-*",
 ]
 
 [repos.intake]
 # Application-layer credentials used by the intake service.
 allowed_paths = [
-  "intake/*",
+  "your-vault/intake-*",
 ]

@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from auto_pass.server import ProvisioningServer
 
 
@@ -172,7 +170,7 @@ class TestProvisioningServerGet:
         assert resp == {"ok": True, "value": "s3cr3t"}
 
     def test_get_permitted_glob_match(self, tmp_path):
-        allowlist = '[repos.my-repo]\ndb = "master"\nallowed_paths = ["infra/*"]\n'
+        allowlist = '[repos.my-repo]\ndb = "master"\nallowed_paths = ["services/*"]\n'
         srv = _make_server(tmp_path, allowlist)
         srv._db_password = "pw"
         with (
@@ -183,7 +181,7 @@ class TestProvisioningServerGet:
             ),
         ):
             resp = srv.handle_request(
-                {"op": "get", "path": "infra/nordvpn", "field": "username", "db": "master"},
+                {"op": "get", "path": "services/vpn", "field": "username", "db": "master"},
                 caller_pid=1,
                 caller_uid=_MY_UID,
             )
