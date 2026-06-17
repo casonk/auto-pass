@@ -35,8 +35,13 @@ auto-pass = "auto_pass.cli:main"
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    "ruff",
     "dyno_lab @ git+https://github.com/casonk/dyno-lab.git",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 web = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",

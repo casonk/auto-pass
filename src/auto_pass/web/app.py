@@ -17,11 +17,12 @@ The server should be accessed over a secure tunnel (pit-box, windscreen, short-c
 
 from __future__ import annotations
 
+import contextlib
 import tomllib
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import FastAPI, Form, Request, status
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -262,10 +263,8 @@ def allowlist_upsert_repo(
         repo_cfg["db"] = db.strip()
     repos[name] = repo_cfg
     _save_allowlist(repos)
-    try:
+    with contextlib.suppress(OSError, ProvisioningClientError):
         _client().reload()
-    except (OSError, ProvisioningClientError):
-        pass
     return JSONResponse({"ok": True})
 
 
@@ -278,10 +277,8 @@ def allowlist_delete_repo(request: Request, repo_name: str) -> JSONResponse:
         return JSONResponse({"ok": False, "error": "repo not found"}, status_code=404)
     del repos[repo_name]
     _save_allowlist(repos)
-    try:
+    with contextlib.suppress(OSError, ProvisioningClientError):
         _client().reload()
-    except (OSError, ProvisioningClientError):
-        pass
     return JSONResponse({"ok": True})
 
 

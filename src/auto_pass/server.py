@@ -41,6 +41,7 @@ infers it from the allowlist.  Multi-vault repos must specify it explicitly.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -48,12 +49,11 @@ import signal
 import socket
 import struct
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from .allowlist import AllowlistEnforcer, default_allowlist_path, resolve_caller_repo
-from .dbindex import DatabaseIndexError, load_database_index, resolve_database_alias
+from .dbindex import DatabaseIndexError, resolve_database_alias
 from .keepassxc import KeepassCommandError, run_keepassxc_show_direct, validate_keepassxc_database
 
 log = logging.getLogger(__name__)
@@ -97,9 +97,9 @@ class ProvisioningServer:
         master_db_path: str,
         master_key_file: str = "",
         master_db_alias: str = "master",
-        allowlist_path: Optional[Path] = None,
-        socket_path: Optional[Path] = None,
-        db_index_path: Optional[Path] = None,
+        allowlist_path: Path | None = None,
+        socket_path: Path | None = None,
+        db_index_path: Path | None = None,
     ) -> None:
         self._master_db_path = master_db_path
         self._master_key_file = master_key_file
@@ -108,7 +108,7 @@ class ProvisioningServer:
         self._enforcer = AllowlistEnforcer(allowlist_path or default_allowlist_path())
         self._db_index_path = db_index_path
         self._state_lock = threading.Lock()
-        self._db_password: Optional[str] = None
+        self._db_password: str | None = None
         self._owner_uid = os.getuid()
 
     @property
@@ -296,7 +296,7 @@ class ProvisioningServer:
         value = fields.get(field, "")
         _append_audit(
             {
-                "ts": datetime.now(timezone.utc).isoformat(),
+                "ts": datetime.now(UTC).isoformat(),
                 "op": "get",
                 "repo": repo_id,
                 "db": db_alias,
@@ -327,16 +327,12 @@ class ProvisioningServer:
             response = self.handle_request(request, caller_pid=pid, caller_uid=uid)
             conn.sendall(json.dumps(response).encode() + b"\n")
         except json.JSONDecodeError:
-            try:
+            with contextlib.suppress(OSError):
                 conn.sendall(json.dumps({"ok": False, "error": "invalid JSON"}).encode() + b"\n")
-            except OSError:
-                pass
         except Exception as exc:
             log.error("connection handler error: %s", exc)
-            try:
+            with contextlib.suppress(OSError):
                 conn.sendall(json.dumps({"ok": False, "error": "internal error"}).encode() + b"\n")
-            except OSError:
-                pass
         finally:
             conn.close()
 
@@ -364,14 +360,10 @@ class ProvisioningServer:
         def _shutdown(signum: int, frame: object) -> None:
             log.info("shutting down (signal %d)", signum)
             self.lock()
-            try:
+            with contextlib.suppress(OSError):
                 srv_sock.close()
-            except OSError:
-                pass
-            try:
+            with contextlib.suppress(OSError):
                 self._socket_path.unlink(missing_ok=True)
-            except OSError:
-                pass
 
         try:
             signal.signal(signal.SIGTERM, _shutdown)
