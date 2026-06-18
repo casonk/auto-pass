@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 import secrets
 
-from fastapi import Cookie, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 
 _TOKEN_ENV = "AUTO_PASS_WEB_TOKEN"
 _SESSION_COOKIE = "ap_session"
@@ -14,7 +14,7 @@ def get_configured_token() -> str:
     token = os.environ.get(_TOKEN_ENV, "").strip()
     if not token:
         raise RuntimeError(
-            f"AUTO_PASS_WEB_TOKEN is not set. "
+            "AUTO_PASS_WEB_TOKEN is not set. "
             "Add it to config/auto-pass.env.local before starting the web server."
         )
     return token
