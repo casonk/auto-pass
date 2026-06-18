@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from auto_pass.allowlist import AllowlistEnforcer, resolve_caller_repo
 
 

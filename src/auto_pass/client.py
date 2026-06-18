@@ -23,7 +23,6 @@ import json
 import os
 import socket
 from pathlib import Path
-from typing import Optional
 
 _PROVISION_SOCKET_ENV = "AUTO_PASS_PROVISIONING_SOCKET"
 _DEFAULT_SOCKET = Path.home() / ".cache" / "auto-pass" / "provisioning.sock"
@@ -36,7 +35,7 @@ class ProvisioningClientError(RuntimeError):
 class ProvisioningClient:
     """Client for the auto-pass provisioning Unix socket daemon."""
 
-    def __init__(self, socket_path: Optional[Path] = None) -> None:
+    def __init__(self, socket_path: Path | None = None) -> None:
         env_val = os.environ.get(_PROVISION_SOCKET_ENV, "").strip()
         self._socket_path = Path(env_val) if env_val else (socket_path or _DEFAULT_SOCKET)
 
@@ -73,7 +72,7 @@ class ProvisioningClient:
         self,
         entry_path: str,
         field: str = "password",
-        db: Optional[str] = None,
+        db: str | None = None,
     ) -> str:
         """Retrieve a single field from a KeePassXC entry via the daemon.
 
