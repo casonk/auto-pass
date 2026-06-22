@@ -209,7 +209,9 @@ def promote_rotation(
     )
     password = str(fields.get("Password", "") or "")
     if not password:
-        raise KeepassCommandError(f"Pending rotation entry {pending_entry!r} does not contain a password.")
+        raise KeepassCommandError(
+            f"Pending rotation entry {pending_entry!r} does not contain a password."
+        )
 
     metadata = _parse_metadata(fields.get("Notes", ""), entry=entry, pending_entry=pending_entry)
     mode = upsert_keepassxc_entry(
@@ -607,7 +609,9 @@ def _sync_registry_from_completed_rotation(
         entry=entry,
         registry_entry=registry_entry,
         updated_at=_now_iso(),
-        homepage_url=_prefer_override(metadata.homepage_url, current.homepage_url if current else ""),
+        homepage_url=_prefer_override(
+            metadata.homepage_url, current.homepage_url if current else ""
+        ),
         reset_url=_prefer_override(metadata.reset_url, current.reset_url if current else ""),
         note=_prefer_override(metadata.note, current.note if current else ""),
         rotation_interval_days=current.rotation_interval_days if current else None,
@@ -744,7 +748,9 @@ def _parse_metadata(notes: str, *, entry: str, pending_entry: str) -> RotationMe
         )
     payload = json.loads(text)
     if not isinstance(payload, dict):
-        raise KeepassCommandError(f"Pending rotation notes for {pending_entry!r} are not valid JSON metadata.")
+        raise KeepassCommandError(
+            f"Pending rotation notes for {pending_entry!r} are not valid JSON metadata."
+        )
     return RotationMetadata(
         schema_version=int(payload.get("schema_version", ROTATION_SCHEMA_VERSION)),
         entry=str(payload.get("entry") or entry).strip(),
