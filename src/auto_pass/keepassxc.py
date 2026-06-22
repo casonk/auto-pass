@@ -311,6 +311,7 @@ def resolve_keepassxc_entry(
     attrs_map: Mapping[str, str],
     *,
     allow_interactive: bool = False,
+    notify: bool = True,
     config: KeepassXCStoreConfig = KeepassXCStoreConfig(),
 ) -> dict[str, str]:
     entry = str(entry or "").strip()
@@ -353,14 +354,15 @@ def resolve_keepassxc_entry(
             normalize_keepass_attribute_name(requested),
         )
         resolved[str(logical_name)] = raw_values.get(keepass_attr, "")
-    try:
-        maybe_notify_password_retrieval(
-            entry=entry,
-            requested_attributes=attr_order,
-            context=context,
-        )
-    except PasswordRetrievalNotificationError as exc:
-        log.warning("password-retrieval notification failed (non-fatal): %s", exc)
+    if notify:
+        try:
+            maybe_notify_password_retrieval(
+                entry=entry,
+                requested_attributes=attr_order,
+                context=context,
+            )
+        except PasswordRetrievalNotificationError as exc:
+            log.warning("password-retrieval notification failed (non-fatal): %s", exc)
     return resolved
 
 
@@ -368,6 +370,7 @@ def resolve_keepassxc_entry_all_fields(
     entry: str,
     *,
     allow_interactive: bool = False,
+    notify: bool = True,
     config: KeepassXCStoreConfig = KeepassXCStoreConfig(),
 ) -> dict[str, str]:
     entry = str(entry or "").strip()
@@ -403,14 +406,15 @@ def resolve_keepassxc_entry_all_fields(
         if current_key and line.strip():
             existing = fields.get(current_key, "")
             fields[current_key] = f"{existing}\n{line.strip()}" if existing else line.strip()
-    try:
-        maybe_notify_password_retrieval(
-            entry=entry,
-            requested_attributes=fields.keys(),
-            context=context,
-        )
-    except PasswordRetrievalNotificationError as exc:
-        log.warning("password-retrieval notification failed (non-fatal): %s", exc)
+    if notify:
+        try:
+            maybe_notify_password_retrieval(
+                entry=entry,
+                requested_attributes=fields.keys(),
+                context=context,
+            )
+        except PasswordRetrievalNotificationError as exc:
+            log.warning("password-retrieval notification failed (non-fatal): %s", exc)
     return fields
 
 
@@ -519,6 +523,10 @@ def _contains_any(text: str, markers: tuple[str, ...]) -> bool:
     return any(marker in lowered for marker in markers)
 
 
+def is_keepass_entry_not_found_error(exc: BaseException | str) -> bool:
+    return _contains_any(str(exc), ENTRY_NOT_FOUND_MARKERS)
+
+
 def ensure_group(
     group: str,
     *,
@@ -609,3 +617,54 @@ def upsert_keepassxc_entry(
 
     _raise_keepass_error(add_result, target=entry, context=context)
     raise AssertionError("unreachable")
+
+
+def remove_keepassxc_entry(
+    entry: str,
+    *,
+    allow_interactive: bool = False,
+    config: KeepassXCStoreConfig = KeepassXCStoreConfig(),
+) -> bool:
+    entry = str(entry or "").strip()
+    if not entry:
+        raise KeepassCommandError("KeePassXC entry is required.")
+
+    context = _resolve_context(config, allow_interactive=allow_interactive)
+    cmd = ["keepassxc-cli", "rm", "-q"]
+    if context.key_file:
+        cmd.extend(["-k", context.key_file])
+    cmd.extend([context.db_path, entry])
+
+    result = _run_keepass_command(cmd, context=context)
+    if result.returncode == 0:
+        return True
+    if _contains_any(result.stderr or "", ENTRY_NOT_FOUND_MARKERS):
+        return False
+    _raise_keepass_error(result, target=entry, context=context)
+    raise AssertionError("unreachable")
+
+
+def list_keepassxc_entries(
+    group: str = "/",
+    *,
+    recursive: bool = True,
+    flatten: bool = True,
+    allow_interactive: bool = False,
+    config: KeepassXCStoreConfig = KeepassXCStoreConfig(),
+) -> list[str]:
+    group = str(group or "/").strip() or "/"
+    context = _resolve_context(config, allow_interactive=allow_interactive)
+    cmd = ["keepassxc-cli", "ls", "-q"]
+    if recursive:
+        cmd.append("-R")
+    if flatten:
+        cmd.append("-f")
+    if context.key_file:
+        cmd.extend(["-k", context.key_file])
+    cmd.extend([context.db_path, group])
+
+    result = _run_keepass_command(cmd, context=context)
+    if result.returncode != 0:
+        _raise_keepass_error(result, target=group, context=context)
+
+    return [line.strip() for line in str(result.stdout or "").splitlines() if line.strip()]

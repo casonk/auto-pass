@@ -21,6 +21,18 @@ from .keepassxc import (
     resolve_keepassxc_entry_all_fields,
     upsert_keepassxc_entry,
 )
+from .rotation import (
+    PasswordPolicy,
+    configure_rotation_registry,
+    discard_rotation,
+    infer_rotation_registry,
+    list_rotation_registries,
+    prepare_rotation,
+    promote_rotation,
+    rotation_registry_status,
+    rotation_status,
+    sync_rotation_todo,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -240,6 +252,295 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    rotate_parser = subparsers.add_parser(
+        "rotate",
+        help="Prepare and promote manual-assisted password rotations.",
+    )
+    rotate_subparsers = rotate_parser.add_subparsers(dest="rotate_command", required=True)
+
+    rotate_prepare_parser = rotate_subparsers.add_parser(
+        "prepare",
+        help="Generate a pending password and store rotation metadata in a companion entry.",
+    )
+    rotate_prepare_parser.add_argument("entry", help="KeePass entry path, for example web/github")
+    rotate_prepare_parser.add_argument(
+        "--length",
+        type=int,
+        default=None,
+        help="Password length. Defaults to the registry value or 24.",
+    )
+    for option in ("lower", "upper", "numeric", "special", "every-group"):
+        rotate_prepare_parser.add_argument(
+            f"--{option}",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            dest=option.replace("-", "_"),
+            help=f"Override {option.replace('-', ' ')} characters for this rotation.",
+        )
+    rotate_prepare_parser.add_argument(
+        "--special-chars",
+        default=None,
+        help="Allowed special characters when special characters are enabled.",
+    )
+    rotate_prepare_parser.add_argument(
+        "--exclude-chars",
+        default=None,
+        help="Characters to exclude from all groups.",
+    )
+    rotate_prepare_parser.add_argument(
+        "--homepage-url",
+        default=None,
+        help="Homepage or login URL. Defaults to the registry value or the entry URL.",
+    )
+    rotate_prepare_parser.add_argument(
+        "--reset-url",
+        default=None,
+        help="Password reset or change-password URL. Defaults to the registry value.",
+    )
+    rotate_prepare_parser.add_argument(
+        "--note",
+        default=None,
+        help="Free-form operator note. Defaults to the registry value.",
+    )
+    rotate_prepare_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_prepare_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object instead of summary text.",
+    )
+
+    rotate_status_parser = rotate_subparsers.add_parser(
+        "status",
+        help="Show non-secret pending rotation state for an entry.",
+    )
+    rotate_status_parser.add_argument("entry", help="KeePass entry path, for example web/github")
+    rotate_status_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_status_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object instead of summary text.",
+    )
+
+    rotate_configure_parser = rotate_subparsers.add_parser(
+        "configure",
+        help="Persist default password policy and provider URLs in a KeePass companion entry.",
+    )
+    rotate_configure_parser.add_argument("entry", help="KeePass entry path, for example web/github")
+    rotate_configure_parser.add_argument(
+        "--length",
+        type=int,
+        default=None,
+        help="Default password length. Keeps the existing registry value when omitted.",
+    )
+    for option in ("lower", "upper", "numeric", "special", "every-group"):
+        rotate_configure_parser.add_argument(
+            f"--{option}",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            dest=option.replace("-", "_"),
+            help=f"Persist the default for {option.replace('-', ' ')} characters.",
+        )
+    rotate_configure_parser.add_argument(
+        "--special-chars",
+        default=None,
+        help="Default allowed special characters.",
+    )
+    rotate_configure_parser.add_argument(
+        "--exclude-chars",
+        default=None,
+        help="Default excluded characters.",
+    )
+    rotate_configure_parser.add_argument(
+        "--homepage-url",
+        default=None,
+        help="Default homepage or login URL.",
+    )
+    rotate_configure_parser.add_argument(
+        "--reset-url",
+        default=None,
+        help="Default password reset or change-password URL.",
+    )
+    rotate_configure_parser.add_argument(
+        "--note",
+        default=None,
+        help="Default operator note.",
+    )
+    rotate_configure_parser.add_argument(
+        "--rotation-interval-days",
+        type=int,
+        default=None,
+        help="Preferred rotation cadence in days.",
+    )
+    rotate_configure_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_configure_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object instead of summary text.",
+    )
+
+    rotate_show_config_parser = rotate_subparsers.add_parser(
+        "show-config",
+        help="Show the KeePass-backed default rotation registry for an entry.",
+    )
+    rotate_show_config_parser.add_argument(
+        "entry", help="KeePass entry path, for example web/github"
+    )
+    rotate_show_config_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_show_config_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object instead of summary text.",
+    )
+
+    rotate_list_configs_parser = rotate_subparsers.add_parser(
+        "list-configs",
+        help="List discovered KeePass-backed rotation registries and their due status.",
+    )
+    rotate_list_configs_parser.add_argument(
+        "--group",
+        default="/",
+        help="KeePass group to scan recursively. Default: /",
+    )
+    rotate_list_configs_parser.add_argument(
+        "--due-within-days",
+        type=int,
+        default=None,
+        help="Only include registries due within this many days.",
+    )
+    rotate_list_configs_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_list_configs_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON instead of summary text.",
+    )
+
+    rotate_infer_config_parser = rotate_subparsers.add_parser(
+        "infer-config",
+        help="Infer a baseline rotation registry from the current KeePass password and entry URL.",
+    )
+    rotate_infer_config_parser.add_argument(
+        "entry", help="KeePass entry path, for example web/github"
+    )
+    rotate_infer_config_parser.add_argument(
+        "--homepage-url",
+        default=None,
+        help="Override the inferred homepage or login URL.",
+    )
+    rotate_infer_config_parser.add_argument(
+        "--reset-url",
+        default=None,
+        help="Override the stored password reset or change-password URL.",
+    )
+    rotate_infer_config_parser.add_argument(
+        "--note",
+        default=None,
+        help="Operator note to store alongside the inferred registry.",
+    )
+    rotate_infer_config_parser.add_argument(
+        "--rotation-interval-days",
+        type=int,
+        default=None,
+        help="Preferred rotation cadence in days.",
+    )
+    rotate_infer_config_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_infer_config_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object instead of summary text.",
+    )
+
+    rotate_sync_todo_parser = rotate_subparsers.add_parser(
+        "sync-todo",
+        help="Sync due password rotations into a Clockwork server-backed to-do list file.",
+    )
+    rotate_sync_todo_parser.add_argument(
+        "--todo-file",
+        required=True,
+        help="Path to the Clockwork to-do JSON file to update.",
+    )
+    rotate_sync_todo_parser.add_argument(
+        "--category",
+        default="Password Rotation",
+        help="To-do category name to manage. Default: Password Rotation",
+    )
+    rotate_sync_todo_parser.add_argument(
+        "--group",
+        default="/",
+        help="KeePass group to scan recursively. Default: /",
+    )
+    rotate_sync_todo_parser.add_argument(
+        "--due-within-days",
+        type=int,
+        default=30,
+        help="Include entries due within this many days. Default: 30",
+    )
+    rotate_sync_todo_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_sync_todo_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON instead of summary text.",
+    )
+
+    rotate_promote_parser = rotate_subparsers.add_parser(
+        "promote",
+        help="Promote a pending password into the real entry after provider-side success.",
+    )
+    rotate_promote_parser.add_argument("entry", help="KeePass entry path, for example web/github")
+    rotate_promote_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_promote_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object instead of summary text.",
+    )
+
+    rotate_discard_parser = rotate_subparsers.add_parser(
+        "discard",
+        help="Remove the pending companion entry without changing the real password.",
+    )
+    rotate_discard_parser.add_argument("entry", help="KeePass entry path, for example web/github")
+    rotate_discard_parser.add_argument(
+        "--allow-interactive",
+        action="store_true",
+        help="Allow prompting for the KeePass database password when possible.",
+    )
+    rotate_discard_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit a JSON object instead of summary text.",
+    )
+
     web_parser = subparsers.add_parser(
         "web",
         help="Start the web UI (requires: pip install 'auto-pass[web]').",
@@ -353,6 +654,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "notify-summary":
         return _cmd_notify_summary(args)
+
+    if args.command == "rotate":
+        return _cmd_rotate(args)
 
     if args.command == "web":
         return _cmd_web(args)
@@ -573,3 +877,122 @@ def _cmd_provision_get(args: argparse.Namespace) -> int:
     except (OSError, ProvisioningClientError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+def _cmd_rotate(args: argparse.Namespace) -> int:
+    try:
+        if args.rotate_command == "prepare":
+            result = prepare_rotation(
+                args.entry,
+                policy=_rotation_policy_from_args(args),
+                homepage_url=args.homepage_url,
+                reset_url=args.reset_url,
+                note=args.note,
+                allow_interactive=args.allow_interactive,
+            )
+        elif args.rotate_command == "status":
+            result = rotation_status(
+                args.entry,
+                allow_interactive=args.allow_interactive,
+            )
+        elif args.rotate_command == "promote":
+            result = promote_rotation(
+                args.entry,
+                allow_interactive=args.allow_interactive,
+            )
+        elif args.rotate_command == "discard":
+            result = discard_rotation(
+                args.entry,
+                allow_interactive=args.allow_interactive,
+            )
+        elif args.rotate_command == "configure":
+            result = configure_rotation_registry(
+                args.entry,
+                policy=_rotation_policy_from_args(args),
+                homepage_url=args.homepage_url,
+                reset_url=args.reset_url,
+                note=args.note,
+                rotation_interval_days=args.rotation_interval_days,
+                allow_interactive=args.allow_interactive,
+            )
+        elif args.rotate_command == "show-config":
+            result = rotation_registry_status(
+                args.entry,
+                allow_interactive=args.allow_interactive,
+            )
+        elif args.rotate_command == "list-configs":
+            result = list_rotation_registries(
+                group=args.group,
+                due_within_days=args.due_within_days,
+                allow_interactive=args.allow_interactive,
+            )
+        elif args.rotate_command == "infer-config":
+            result = infer_rotation_registry(
+                args.entry,
+                homepage_url=args.homepage_url,
+                reset_url=args.reset_url,
+                note=args.note,
+                rotation_interval_days=args.rotation_interval_days,
+                allow_interactive=args.allow_interactive,
+            )
+        elif args.rotate_command == "sync-todo":
+            result = sync_rotation_todo(
+                args.todo_file,
+                category=args.category,
+                group=args.group,
+                due_within_days=args.due_within_days,
+                allow_interactive=args.allow_interactive,
+            )
+        else:
+            raise AssertionError(f"Unhandled rotate command: {args.rotate_command}")
+    except (ValueError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if getattr(args, "json", False):
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+
+    if isinstance(result, list):
+        for item in result:
+            entry = item.get("entry", "")
+            due_status = item.get("due_status", "")
+            days_until_due = item.get("days_until_due", "")
+            source = item.get("policy_source", "")
+            print(
+                f"{entry}\tdue_status={due_status}\tdays_until_due={days_until_due}\tpolicy_source={source}"
+            )
+        return 0
+
+    for key, value in result.items():
+        print(f"{key}={value}")
+    return 0
+
+
+def _rotation_policy_from_args(args: argparse.Namespace) -> PasswordPolicy | None:
+    fields = {
+        "length": getattr(args, "length", None),
+        "lower": getattr(args, "lower", None),
+        "upper": getattr(args, "upper", None),
+        "numeric": getattr(args, "numeric", None),
+        "special": getattr(args, "special", None),
+        "special_chars": getattr(args, "special_chars", None),
+        "exclude_chars": getattr(args, "exclude_chars", None),
+        "every_group": getattr(args, "every_group", None),
+    }
+    if all(value is None for value in fields.values()):
+        return None
+    return PasswordPolicy(
+        length=fields["length"] if fields["length"] is not None else 24,
+        lower=fields["lower"] if fields["lower"] is not None else True,
+        upper=fields["upper"] if fields["upper"] is not None else True,
+        numeric=fields["numeric"] if fields["numeric"] is not None else True,
+        special=fields["special"] if fields["special"] is not None else True,
+        special_chars=(
+            fields["special_chars"]
+            if fields["special_chars"] is not None
+            else "!@#$%^&*()-_=+[]{}:,.?"
+        ),
+        exclude_chars=fields["exclude_chars"] if fields["exclude_chars"] is not None else "",
+        every_group=fields["every_group"] if fields["every_group"] is not None else True,
+    )

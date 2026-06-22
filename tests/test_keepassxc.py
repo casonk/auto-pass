@@ -15,7 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from auto_pass.keepassxc import (
     KeepassXCStoreConfig,
     ensure_group,
+    is_keepass_entry_not_found_error,
+    list_keepassxc_entries,
     lookup_keepass_field_case_insensitive,
+    remove_keepassxc_entry,
     resolve_keepassxc_entry,
     resolve_keepassxc_entry_all_fields,
     seed_keepass_password_env_for_tty,
@@ -133,6 +136,28 @@ class KeepassResolutionTests(unittest.TestCase):
         self.assertIn("octocat", result.get("username", ""))
         self.assertTrue(any("notification failed" in line for line in captured.output))
 
+    def test_resolve_keepassxc_entry_can_skip_notifications(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="octocat\nsecret\n",
+                    stderr="",
+                ),
+            ),
+            patch("auto_pass.keepassxc.maybe_notify_password_retrieval") as notify,
+        ):
+            resolve_keepassxc_entry(
+                entry="web/github",
+                attrs_map={"username": "username", "password": "password"},
+                notify=False,
+            )
+
+        notify.assert_not_called()
+
     def test_resolve_keepassxc_entry_all_fields_parses_multiline_notes(self) -> None:
         def fake_run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
             return subprocess.CompletedProcess(
@@ -178,6 +203,24 @@ class KeepassResolutionTests(unittest.TestCase):
             list(notify.call_args.kwargs["requested_attributes"]),
             ["Title", "UserName", "Password"],
         )
+
+    def test_resolve_keepassxc_entry_all_fields_can_skip_notifications(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="Title: GitHub\nUserName: octocat\nPassword: secret\n",
+                    stderr="",
+                ),
+            ),
+            patch("auto_pass.keepassxc.maybe_notify_password_retrieval") as notify,
+        ):
+            resolve_keepassxc_entry_all_fields("web/github", notify=False)
+
+        notify.assert_not_called()
 
     def test_lookup_keepass_field_case_insensitive_handles_aliases(self) -> None:
         fields = {"UserName": "octocat", "Password": "secret"}
@@ -344,6 +387,63 @@ class KeepassWriteTests(unittest.TestCase):
                 created = ensure_group("web")
 
         self.assertFalse(created)
+
+    def test_remove_keepassxc_entry_returns_true_when_deleted(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="",
+                    stderr="",
+                ),
+            ) as run,
+        ):
+            removed = remove_keepassxc_entry("web/github")
+
+        self.assertTrue(removed)
+        self.assertEqual(run.call_args.args[0][:3], ["keepassxc-cli", "rm", "-q"])
+
+    def test_remove_keepassxc_entry_returns_false_when_missing(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=1,
+                    stdout="",
+                    stderr="Entry web/github not found",
+                ),
+            ),
+        ):
+            removed = remove_keepassxc_entry("web/github")
+
+        self.assertFalse(removed)
+
+    def test_is_keepass_entry_not_found_error_detects_expected_messages(self) -> None:
+        self.assertTrue(is_keepass_entry_not_found_error("Entry web/github not found"))
+        self.assertFalse(is_keepass_entry_not_found_error("permission denied"))
+
+    def test_list_keepassxc_entries_returns_non_empty_lines(self) -> None:
+        with (
+            patch.dict(os.environ, DEFAULT_ENV, clear=False),
+            patch(
+                "auto_pass.keepassxc.subprocess.run",
+                return_value=subprocess.CompletedProcess(
+                    args=[],
+                    returncode=0,
+                    stdout="web/github\nweb/github@rotation-config\n\n",
+                    stderr="",
+                ),
+            ) as run,
+        ):
+            entries = list_keepassxc_entries("/")
+
+        self.assertEqual(entries, ["web/github", "web/github@rotation-config"])
+        self.assertEqual(run.call_args.args[0][:4], ["keepassxc-cli", "ls", "-q", "-R"])
 
 
 if __name__ == "__main__":

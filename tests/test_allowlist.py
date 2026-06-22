@@ -182,6 +182,10 @@ class TestResolveCallerRepo:
         non_git = tmp_path / "not-a-repo"
         non_git.mkdir()
 
-        with patch("auto_pass.allowlist.os.readlink", return_value=str(non_git)):
+        with (
+            patch("auto_pass.allowlist.os.readlink", return_value=str(non_git)),
+            patch("auto_pass.allowlist._find_git_root", return_value=None),
+            patch.dict("auto_pass.allowlist._repo_root_cache", {}, clear=True),
+        ):
             result = resolve_caller_repo(pid=1)
         assert result is None
