@@ -16,6 +16,10 @@ Consent reference: [`../../doc-repos/my-consent/credentials-and-secrets.md`](../
 - Read all fields from a KeePassXC entry.
 - Create or update entries through `keepassxc-cli`.
 - Create parent group paths automatically when adding entries.
+- Prepare manual-assisted password rotations with provider URLs and explicit
+  password-policy requirements.
+- Promote or discard pending rotation passwords without overwriting the real
+  password until the operator confirms the provider-side change succeeded.
 - Reuse the same KeepassXC environment variable pattern used by
   `personal-finance`.
 
@@ -194,6 +198,102 @@ Create a group path explicitly:
 auto-pass mkdir web
 ```
 
+Configure persistent rotation defaults in KeePass:
+
+```bash
+auto-pass rotate configure web/github \
+  --length 32 \
+  --homepage-url https://github.com/login \
+  --reset-url https://github.com/settings/security \
+  --rotation-interval-days 180
+```
+
+That creates or updates a companion registry entry at
+`web/github@rotation-config`. The registry entry stores non-secret defaults in
+Notes as JSON so future rotations can reuse the same password policy and
+provider URLs.
+
+Inspect the persistent registry:
+
+```bash
+auto-pass rotate show-config web/github
+auto-pass rotate show-config web/github --json
+```
+
+Discover registries and see which ones are due:
+
+```bash
+auto-pass rotate list-configs
+auto-pass rotate list-configs --group web --due-within-days 30
+auto-pass rotate list-configs --json
+```
+
+Sync due registries into the Clockwork server-backed to-do list:
+
+```bash
+auto-pass rotate sync-todo \
+  --todo-file ~/git/util-repos/clockwork/config/todo.json \
+  --due-within-days 30
+```
+
+That command manages a `Password Rotation` category inside the Clockwork to-do
+JSON. Successful `rotate promote` runs now refresh the registry timestamp and
+upgrade the registry trust marker to `manual/high`, so completed rotations drop
+out of the due list on the next sync.
+
+Bootstrap a registry from the current password:
+
+```bash
+auto-pass rotate infer-config web/github --rotation-interval-days 180
+```
+
+That command reads the current KeePass password and entry URL, derives a
+conservative baseline policy from the observed character groups and length, and
+writes the result into `web/github@rotation-config`. Inferred registries are
+tagged with `policy_source=inferred-from-current-password` and
+`policy_confidence=low`.
+
+Prepare a manual-assisted rotation from the registry:
+
+```bash
+auto-pass rotate prepare web/github
+```
+
+You can still override the registry per rotation:
+
+```bash
+auto-pass rotate prepare web/github \
+  --length 32 \
+  --special-chars '!@#$%^&*()-_=+[]{}:,.?' \
+  --reset-url https://github.com/settings/security \
+  --homepage-url https://github.com/login
+```
+
+That command creates a companion entry at `web/github@rotation-pending`. The
+pending entry stores the generated candidate password in its password field and
+stores non-secret rotation metadata in Notes as JSON.
+
+Check pending rotation state:
+
+```bash
+auto-pass rotate status web/github
+auto-pass rotate status web/github --json
+```
+
+After you change the password at the provider and verify the new login works,
+promote the pending password into the real entry:
+
+```bash
+auto-pass rotate promote web/github
+```
+
+If the provider-side change fails or you want to abandon the candidate, discard
+the pending companion entry:
+
+```bash
+auto-pass rotate discard web/github
+```
+
 ## Library Usage
 
 ```python
@@ -222,9 +322,27 @@ See `docs/contributor-architecture-blueprint.md` and
 `docs/diagrams/repo-architecture.{puml,drawio}` for the repo-specific
 architecture surfaces.
 
+## Rotation Notes
+
+The current rotation flow is intentionally conservative:
+
+- Persistent defaults live in KeePass itself via `<entry>@rotation-config`.
+- `rotate infer-config` can seed that registry from the currently stored
+  password, but the result is only an observed baseline.
+- Password requirements are provided at rotation time through CLI flags.
+- Unspecified rotation-time flags fall back to the KeePass-backed registry.
+- The real entry password is not overwritten during `rotate prepare`.
+- Promotion is an explicit second step after a manual/provider-side change.
+- Provider metadata such as homepage and reset URLs are stored with the pending
+  rotation so a future provider-aware workflow has a stable place to read from.
+- Inferred registry values are hints, not proof of the provider's full policy;
+  a successful future rotation is what should upgrade the config from inferred
+  to verified.
+- `rotate promote` refreshes `updated_at` in the registry and persists the
+  successful pending policy as `manual/high`.
+
 ## Next
 
-The obvious next layer is higher-level password automation on top of this
-module: syncing browser credentials, rotating selected entries, and config-
-driven secret workflows. The KeePassXC integration here is meant to be the
-shared base for that work.
+The next layer is provider-aware automation on top of the current registry:
+site-specific adapters, requirement discovery, and a controlled path from
+manual-assisted rotations toward limited safe auto-rotation.

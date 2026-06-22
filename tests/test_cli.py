@@ -98,6 +98,215 @@ class CliProfileTests(unittest.TestCase):
             '{\n  "active_profile": "infra",\n  "profiles": [\n    "infra",\n    "master"\n  ]\n}\n',
         )
 
+    def test_rotate_prepare_dispatches_password_policy(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("auto_pass.cli.load_config_environment"),
+            patch("auto_pass.cli.prepare_rotation") as prepare_rotation,
+            redirect_stdout(stdout),
+        ):
+            prepare_rotation.return_value = {
+                "entry": "web/github",
+                "pending": True,
+                "pending_entry": "web/github@rotation-pending",
+                "length": 28,
+            }
+            rc = main(
+                [
+                    "rotate",
+                    "prepare",
+                    "web/github",
+                    "--length",
+                    "28",
+                    "--reset-url",
+                    "https://github.com/settings/security",
+                    "--no-special",
+                ]
+            )
+
+        self.assertEqual(rc, 0)
+        prepare_rotation.assert_called_once()
+        policy = prepare_rotation.call_args.kwargs["policy"]
+        self.assertEqual(policy.length, 28)
+        self.assertFalse(policy.special)
+        self.assertEqual(
+            prepare_rotation.call_args.kwargs["reset_url"],
+            "https://github.com/settings/security",
+        )
+        self.assertIn("pending_entry=web/github@rotation-pending", stdout.getvalue())
+
+    def test_rotate_prepare_uses_registry_defaults_when_flags_omitted(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("auto_pass.cli.load_config_environment"),
+            patch("auto_pass.cli.prepare_rotation") as prepare_rotation,
+            redirect_stdout(stdout),
+        ):
+            prepare_rotation.return_value = {
+                "entry": "web/github",
+                "pending": True,
+                "pending_entry": "web/github@rotation-pending",
+            }
+            rc = main(["rotate", "prepare", "web/github"])
+
+        self.assertEqual(rc, 0)
+        self.assertIsNone(prepare_rotation.call_args.kwargs["policy"])
+        self.assertIsNone(prepare_rotation.call_args.kwargs["homepage_url"])
+        self.assertIsNone(prepare_rotation.call_args.kwargs["reset_url"])
+
+    def test_rotate_configure_dispatches_registry_update(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("auto_pass.cli.load_config_environment"),
+            patch("auto_pass.cli.configure_rotation_registry") as configure_rotation_registry,
+            redirect_stdout(stdout),
+        ):
+            configure_rotation_registry.return_value = {
+                "entry": "web/github",
+                "configured": True,
+                "registry_entry": "web/github@rotation-config",
+            }
+            rc = main(
+                [
+                    "rotate",
+                    "configure",
+                    "web/github",
+                    "--length",
+                    "30",
+                    "--homepage-url",
+                    "https://github.com/login",
+                    "--rotation-interval-days",
+                    "90",
+                ]
+            )
+
+        self.assertEqual(rc, 0)
+        policy = configure_rotation_registry.call_args.kwargs["policy"]
+        self.assertEqual(policy.length, 30)
+        self.assertEqual(
+            configure_rotation_registry.call_args.kwargs["rotation_interval_days"],
+            90,
+        )
+        self.assertIn("registry_entry=web/github@rotation-config", stdout.getvalue())
+
+    def test_rotate_status_can_emit_json(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("auto_pass.cli.load_config_environment"),
+            patch(
+                "auto_pass.cli.rotation_status",
+                return_value={"entry": "web/github", "pending": False},
+            ),
+            redirect_stdout(stdout),
+        ):
+            rc = main(["rotate", "status", "web/github", "--json"])
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(stdout.getvalue(), '{\n  "entry": "web/github",\n  "pending": false\n}\n')
+
+    def test_rotate_show_config_can_emit_json(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("auto_pass.cli.load_config_environment"),
+            patch(
+                "auto_pass.cli.rotation_registry_status",
+                return_value={"entry": "web/github", "configured": False},
+            ),
+            redirect_stdout(stdout),
+        ):
+            rc = main(["rotate", "show-config", "web/github", "--json"])
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            stdout.getvalue(),
+            '{\n  "configured": false,\n  "entry": "web/github"\n}\n',
+        )
+
+    def test_rotate_infer_config_dispatches_registry_inference(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("auto_pass.cli.load_config_environment"),
+            patch("auto_pass.cli.infer_rotation_registry") as infer_rotation_registry,
+            redirect_stdout(stdout),
+        ):
+            infer_rotation_registry.return_value = {
+                "entry": "web/github",
+                "configured": True,
+                "registry_entry": "web/github@rotation-config",
+                "policy_source": "inferred-from-current-password",
+            }
+            rc = main(
+                [
+                    "rotate",
+                    "infer-config",
+                    "web/github",
+                    "--rotation-interval-days",
+                    "180",
+                ]
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            infer_rotation_registry.call_args.kwargs["rotation_interval_days"],
+            180,
+        )
+        self.assertIn("policy_source=inferred-from-current-password", stdout.getvalue())
+
+    def test_rotate_list_configs_prints_due_summary(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("auto_pass.cli.load_config_environment"),
+            patch(
+                "auto_pass.cli.list_rotation_registries",
+                return_value=[
+                    {
+                        "entry": "web/github",
+                        "due_status": "overdue",
+                        "days_until_due": -10,
+                        "policy_source": "manual",
+                    }
+                ],
+            ) as list_rotation_registries,
+            redirect_stdout(stdout),
+        ):
+            rc = main(["rotate", "list-configs", "--due-within-days", "30"])
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(
+            list_rotation_registries.call_args.kwargs["due_within_days"],
+            30,
+        )
+        self.assertIn("web/github", stdout.getvalue())
+        self.assertIn("due_status=overdue", stdout.getvalue())
+
+    def test_rotate_sync_todo_dispatches_clockwork_sync(self) -> None:
+        stdout = io.StringIO()
+        with (
+            patch("auto_pass.cli.load_config_environment"),
+            patch("auto_pass.cli.sync_rotation_todo") as sync_rotation_todo,
+            redirect_stdout(stdout),
+        ):
+            sync_rotation_todo.return_value = {
+                "todo_file": "/tmp/todo.json",
+                "category": "Password Rotation",
+                "item_count": 2,
+            }
+            rc = main(
+                [
+                    "rotate",
+                    "sync-todo",
+                    "--todo-file",
+                    "/tmp/todo.json",
+                    "--due-within-days",
+                    "14",
+                ]
+            )
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(sync_rotation_todo.call_args.args[0], "/tmp/todo.json")
+        self.assertEqual(sync_rotation_todo.call_args.kwargs["due_within_days"], 14)
+        self.assertIn("item_count=2", stdout.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
