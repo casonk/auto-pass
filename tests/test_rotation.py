@@ -69,7 +69,10 @@ class RotationLifecycleTests(unittest.TestCase):
         with (
             patch(
                 "auto_pass.rotation.resolve_keepassxc_entry_all_fields",
-                side_effect=[KeepassCommandError("Entry web/github@rotation-config not found"), {"URL": "https://github.com/settings/security"}],
+                side_effect=[
+                    KeepassCommandError("Entry web/github@rotation-config not found"),
+                    {"URL": "https://github.com/settings/security"},
+                ],
             ) as read_entry,
             patch(
                 "auto_pass.rotation.upsert_keepassxc_entry",
@@ -107,7 +110,7 @@ class RotationLifecycleTests(unittest.TestCase):
                 "auto_pass.rotation.resolve_keepassxc_entry_all_fields",
                 return_value={
                     "Notes": (
-                        '{'
+                        "{"
                         '"entry":"web/github",'
                         '"registry_entry":"web/github@rotation-config",'
                         '"homepage_url":"https://github.com/login",'
@@ -115,7 +118,7 @@ class RotationLifecycleTests(unittest.TestCase):
                         '"rotation_interval_days":90,'
                         '"policy":{"length":30,"special":false,"lower":true,"upper":true,"numeric":true,"special_chars":"!@#","exclude_chars":"","every_group":true},'
                         '"schema_version":1'
-                        '}'
+                        "}"
                     )
                 },
             ),
@@ -162,7 +165,7 @@ class RotationLifecycleTests(unittest.TestCase):
             return_value={
                 "Password": "GeneratedPassword123!",
                 "Notes": (
-                    '{\n'
+                    "{\n"
                     '  "created_at": "2026-06-18T12:00:00+00:00",\n'
                     '  "entry": "web/github",\n'
                     '  "homepage_url": "https://github.com",\n'
@@ -171,7 +174,7 @@ class RotationLifecycleTests(unittest.TestCase):
                     '  "policy": {"length": 20},\n'
                     '  "reset_url": "https://github.com/settings/security",\n'
                     '  "schema_version": 1\n'
-                    '}'
+                    "}"
                 ),
             },
         ):
@@ -321,7 +324,7 @@ class RotationLifecycleTests(unittest.TestCase):
             "auto_pass.rotation.resolve_keepassxc_entry_all_fields",
             return_value={
                 "Notes": (
-                    '{'
+                    "{"
                     '"entry":"web/github",'
                     '"registry_entry":"web/github@rotation-config",'
                     '"updated_at":"2026-06-19T12:00:00+00:00",'
@@ -333,7 +336,7 @@ class RotationLifecycleTests(unittest.TestCase):
                     '"policy_source":"manual",'
                     '"policy_confidence":"high",'
                     '"schema_version":1'
-                    '}'
+                    "}"
                 )
             },
         ):
@@ -379,11 +382,11 @@ class RotationLifecycleTests(unittest.TestCase):
 
     def test_list_rotation_registries_reports_due_status_and_filter(self) -> None:
         overdue_updated_at = (
-            datetime.now(UTC) - timedelta(days=190)
-        ).replace(microsecond=0).isoformat()
+            (datetime.now(UTC) - timedelta(days=190)).replace(microsecond=0).isoformat()
+        )
         upcoming_updated_at = (
-            datetime.now(UTC) - timedelta(days=160)
-        ).replace(microsecond=0).isoformat()
+            (datetime.now(UTC) - timedelta(days=160)).replace(microsecond=0).isoformat()
+        )
         with (
             patch(
                 "auto_pass.rotation.list_keepassxc_entries",
