@@ -27,9 +27,9 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   `AUTO_PASS_PROFILE` plus a second profile-apply step.
 - For direct downstream consumers of `auto-pass`, standardize on a tracked
   `config/auto-pass.example.ini` plus gitignored `config/auto-pass.ini` for
-  repo-local defaults; keep older compatibility flows like
-  `personal-finance/pf.env.local` separate instead of forcing the same file
-  shape everywhere.
+  repo-local defaults; keep older compatibility flows like the origin repo's
+  `pf.env.local` (the `PF_`-prefixed variables) separate instead of forcing the
+  same file shape everywhere.
 - Keep tracked example configs scrubbed of real account identifiers, email
   addresses, hostnames, and live KeePass entry names; use obvious placeholders
   that show the shape without mirroring the operator's private vault layout.

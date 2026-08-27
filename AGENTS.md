@@ -8,7 +8,7 @@
 - library helpers in `auto_pass.keepassxc`
 - env-file loading helpers in `auto_pass.envfile`
 
-Keep changes narrow, preserve secret-handling behavior, and avoid breaking compatibility with the existing `personal-finance` KeePassXC environment-variable pattern unless the task explicitly requires it.
+Keep changes narrow, preserve secret-handling behavior, and avoid breaking compatibility with the existing `PF_`-prefixed KeePassXC environment-variable pattern (inherited from the origin consumer repo) unless the task explicitly requires it.
 
 ## Repository Layout
 

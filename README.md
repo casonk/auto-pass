@@ -2,8 +2,8 @@
 
 KeePassXC-backed password automation helpers.
 
-This repo is intentionally starting with the part that is already proven in
-`personal-finance`: reliable
+This repo is intentionally starting with the part that is already proven in an
+origin consumer repo: reliable
 `keepassxc-cli` wrappers for reading entries, prompting for the database
 password once, caching that password locally for interactive use, and creating
 or updating entries from scripts.
@@ -20,8 +20,8 @@ Consent reference: [`../../doc-repos/my-consent/credentials-and-secrets.md`](../
   password-policy requirements.
 - Promote or discard pending rotation passwords without overwriting the real
   password until the operator confirms the provider-side change succeeded.
-- Reuse the same KeepassXC environment variable pattern used by
-  `personal-finance`.
+- Reuse the same KeepassXC environment variable pattern as the origin repo (the
+  `PF_`-prefixed variables).
 
 ## Environment
 
@@ -34,7 +34,7 @@ Primary env vars:
 - `AUTO_PASS_KEEPASSXC_DB_PASSWORD`
 - `AUTO_PASS_KEEPASSXC_KEY_FILE`
 
-Compatibility fallbacks from `personal-finance` are also accepted:
+Compatibility fallbacks from the origin repo (the `PF_` prefix) are also accepted:
 
 - `PF_KEEPASSXC_DB_PATH`
 - `PF_KEEPASSXC_DB_PASSWORD`
