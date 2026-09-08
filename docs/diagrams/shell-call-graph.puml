@@ -5,16 +5,23 @@ skinparam shadowing false
 skinparam defaultFontName Monospace
 skinparam componentStyle rectangle
 skinparam linetype ortho
+rectangle "bootstrap.sh\n0 local shell edges\n3 external tools" as shell_bootstrap_sh #DBEAFE
 rectangle "scripts/run_tachometer_profile.sh\n0 local shell edges\n3 external tools" as shell_scripts_run_tachometer_profile_sh #DBEAFE
+cloud "auto-pass" as tool_auto_pass #FEF3C7
+cloud "cat" as tool_cat #FEF3C7
 cloud "run" as tool_run #FEF3C7
+cloud "sed" as tool_sed #FEF3C7
 cloud "summarize" as tool_summarize #FEF3C7
 cloud "tachometer" as tool_tachometer #FEF3C7
+shell_bootstrap_sh --> tool_auto_pass
+shell_bootstrap_sh --> tool_cat
+shell_bootstrap_sh --> tool_sed
 shell_scripts_run_tachometer_profile_sh --> tool_run
 shell_scripts_run_tachometer_profile_sh --> tool_summarize
 shell_scripts_run_tachometer_profile_sh --> tool_tachometer
 note as shellGraphSummary
-Scanned 1 shell script.
+Scanned 2 shell scripts.
 Detected 0 local shell edges.
-Detected 3 external tools.
+Detected 6 external tools.
 end note
 @enduml
