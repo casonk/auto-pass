@@ -5,7 +5,7 @@ class "AllowlistEnforcer" as src.auto_pass.allowlist.AllowlistEnforcer {
   known_repos() -> list[str]
   permitted_paths(repo_id: str, db: str) -> list[str]
   reload() -> None
-  repo_default_db(repo_id: str) -> Optional[str]
+  repo_default_db(repo_id: str) -> str | None
   repo_vaults(repo_id: str) -> list[str]
 }
 class "<color:red>AllowlistError</color>" as src.auto_pass.allowlist.AllowlistError {
@@ -27,6 +27,16 @@ class "KeepassXCStoreConfig" as src.auto_pass.keepassxc.KeepassXCStoreConfig {
   database_path : str
   database_path_env_names : tuple[str, ...]
 }
+class "PasswordPolicy" as src.auto_pass.rotation.PasswordPolicy {
+  every_group : bool
+  exclude_chars : str
+  length : int
+  lower : bool
+  numeric : bool
+  special : bool
+  special_chars : str
+  upper : bool
+}
 class "PasswordRetrievalNotificationConfig" as src.auto_pass.notifications.PasswordRetrievalNotificationConfig {
   email_config_path : Path
   email_to : str
@@ -39,7 +49,7 @@ class "<color:red>PasswordRetrievalNotificationError</color>" as src.auto_pass.n
 }
 class "ProvisioningClient" as src.auto_pass.client.ProvisioningClient {
   admin_context() -> dict
-  get(entry_path: str, field: str, db: Optional[str]) -> str
+  get(entry_path: str, field: str, db: str | None) -> str
   is_running() -> bool
   lock() -> None
   reload() -> None
@@ -61,5 +71,28 @@ class "ResolvedKeepassContext" as src.auto_pass.keepassxc.ResolvedKeepassContext
   interactive_allowed : bool
   key_file : str
   password_env_name : str
+}
+class "RotationMetadata" as src.auto_pass.rotation.RotationMetadata {
+  created_at : str
+  entry : str
+  homepage_url : str
+  note : str
+  pending_entry : str
+  policy : dict[str, object] | None
+  reset_url : str
+  schema_version : int
+}
+class "RotationRegistry" as src.auto_pass.rotation.RotationRegistry {
+  entry : str
+  homepage_url : str
+  note : str
+  policy : dict[str, object] | None
+  policy_confidence : str
+  policy_source : str
+  registry_entry : str
+  reset_url : str
+  rotation_interval_days : int | None
+  schema_version : int
+  updated_at : str
 }
 @enduml
