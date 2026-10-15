@@ -19,3 +19,6 @@ CLAUDE.md
 .tachometer/
 
 /REFS-LOCAL.md
+
+# Local config backups
+*.bak-*
