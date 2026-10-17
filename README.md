@@ -96,6 +96,20 @@ to send the audit message to the local Signal account defined in the
 
 ## Install
 
+For the CLI and Python API from PyPI, use a virtual environment:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install auto-pass
+```
+
+Install `auto-pass[web]` in that environment if you need the optional web UI.
+The package contains its web templates; the example and local configuration
+files remain in the repository and must be supplied separately.
+
+For development from a checkout:
+
 ```bash
 ./bootstrap.sh
 ```
