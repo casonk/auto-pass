@@ -1,4 +1,4 @@
-@startuml classes_auto-pass
+@startuml classes_checkout
 set namespaceSeparator none
 class "AllowlistEnforcer" as src.auto_pass.allowlist.AllowlistEnforcer {
   is_permitted(repo_id: str, db: str, entry_path: str) -> bool
