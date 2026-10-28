@@ -10,6 +10,20 @@ or updating entries from scripts.
 
 Consent reference: [`../../doc-repos/my-consent/credentials-and-secrets.md`](../../doc-repos/my-consent/credentials-and-secrets.md) documents the explicit consent covering personal credential, secret, and secure-store processing handled by this repo.
 
+## Checking vault access
+
+```bash
+auto-pass check-access            # exit 1 and a fix per vault this login cannot use
+auto-pass check-access --fix-acl  # also add a default ACL entry on directories you own
+```
+
+A vault can stop being usable without auto-pass changing: a sync service running
+as another account rewrites the file, and the new file is owned by that account
+with no entry for your login. Every consumer then reports "not readable", which
+looks like a locked vault or a bad password. `check-access` names the vault and
+prints the command that fixes it (`sudo setfacl -m u:<login>:rw <file>` when the
+file belongs to someone else; auto-pass never runs sudo).
+
 ## Current Scope
 
 - Read one or more fields from a KeePassXC entry.
