@@ -3,7 +3,7 @@
 
 [repository]
 # One line shown on GitHub. Keep it free of private repository names and local paths.
-description = "a repository for automating password management"
+description = "Password automation and secret-management helpers for the portfolio: secure retrieval, rotation, and local credential workflows."
 
 [main_branch]
 # Direct commits and pushes to main are refused unless this is true.
