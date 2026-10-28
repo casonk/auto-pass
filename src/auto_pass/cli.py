@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 import sys
-from getpass import getpass
+from getpass import getpass, getuser
 from pathlib import Path
 
 from .envfile import (
@@ -143,6 +143,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Emit a JSON object with the active profile and available profiles.",
+    )
+
+    check_access_parser = subparsers.add_parser(
+        "check-access",
+        help="Check that this login can read and write every configured vault.",
+    )
+    check_access_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+    check_access_parser.add_argument(
+        "--fix-acl",
+        action="store_true",
+        help=(
+            "Add a default ACL entry for this login on each vault directory it owns, so a "
+            "file rewritten by another account stays readable."
+        ),
     )
 
     # ------------------------------------------------------------------
@@ -636,6 +650,30 @@ def main(argv: list[str] | None = None) -> int:
             prefix = "* " if profile == active_profile else "  "
             print(f"{prefix}{profile}")
         return 0
+
+    if args.command == "check-access":
+        from . import access
+
+        login = getuser()
+        paths = access.vault_paths()
+        if args.fix_acl:
+            for directory in sorted({path.parent for path in paths.values()}):
+                if access.default_acl_missing(directory, login) and access.fix_default_acl(
+                    directory, login
+                ):
+                    print(f"added default ACL u:{login}:rwx on {directory}", file=sys.stderr)
+        findings = access.check_vaults(paths, login=login)
+        if args.json:
+            print(json.dumps([f.as_dict() for f in findings], indent=2, sort_keys=True))
+        else:
+            for finding in findings:
+                print(
+                    f"error: vault {finding.label} {finding.problem}: {finding.path} "
+                    f"(fix: {finding.hint})"
+                )
+            if not findings:
+                print(f"ok: {len(paths)} vault(s) readable and writable by {login}")
+        return 1 if findings else 0
 
     if args.command == "serve":
         return _cmd_serve(args)
