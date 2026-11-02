@@ -20,11 +20,31 @@ def get_configured_token() -> str:
     return token
 
 
+def tokens_match(supplied: str, expected: str) -> bool:
+    """Constant-time comparison that is safe for any text.
+
+    ``secrets.compare_digest`` on two ``str`` raises TypeError if either holds a non-ASCII
+    character, which would turn a hostile cookie or form value into a server error.
+    """
+    return secrets.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8"))
+
+
+def safe_next(path: str) -> str:
+    """A post-login destination on this site, or ``/``.
+
+    Only an absolute path is accepted: a scheme, a host (``//host``) or a backslash, which
+    some browsers treat as a slash, would send the user to another site after they log in.
+    """
+    if path.startswith("/") and not path.startswith("//") and "\\" not in path:
+        return path
+    return "/"
+
+
 def verify_session(request: Request) -> bool:
     """Return True if the request carries a valid session cookie."""
     token = get_configured_token()
     cookie = request.cookies.get(_SESSION_COOKIE, "")
-    return secrets.compare_digest(cookie, token)
+    return tokens_match(cookie, token)
 
 
 def require_session(request: Request) -> None:
@@ -42,7 +62,7 @@ def require_session(request: Request) -> None:
 
 def make_session_response(next_path: str = "/") -> RedirectResponse:
     token = get_configured_token()
-    response = RedirectResponse(url=next_path, status_code=302)
+    response = RedirectResponse(url=safe_next(next_path), status_code=302)
     response.set_cookie(
         _SESSION_COOKIE,
         token,

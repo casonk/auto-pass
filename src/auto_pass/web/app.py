@@ -18,6 +18,8 @@ The server should be accessed over a secure tunnel (pit-box, windscreen, short-c
 from __future__ import annotations
 
 import contextlib
+import json
+import re
 import tomllib
 from pathlib import Path
 from typing import Annotated, Any
@@ -36,7 +38,7 @@ from ..keepassxc import (
 )
 from ..server import default_socket_path
 from .audit import read_events
-from .auth import get_configured_token, make_session_response, require_session
+from .auth import get_configured_token, make_session_response, require_session, tokens_match
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -76,6 +78,21 @@ def _load_allowlist_raw() -> dict:
         return tomllib.load(fh)
 
 
+_BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _toml_string(value: str) -> str:
+    """A TOML basic string holding exactly ``value``, whatever it contains."""
+    # json escapes the quote, the backslash and the control characters TOML also escapes;
+    # DEL is the one control character json leaves alone and TOML does not allow raw.
+    return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
+
+
+def _toml_key(name: str) -> str:
+    """A table-header key: bare when it can be, quoted otherwise, never able to end the header."""
+    return name if _BARE_KEY.fullmatch(name) else _toml_string(name)
+
+
 def _save_allowlist(repos: dict[str, dict]) -> None:
     """Write repos dict back to the allowlist TOML file."""
     path = default_allowlist_path()
@@ -83,19 +100,20 @@ def _save_allowlist(repos: dict[str, dict]) -> None:
     lines = ["# Provisioning allowlist — managed by auto-pass web", ""]
     for repo_name in sorted(repos):
         cfg = repos[repo_name]
+        repo_key = _toml_key(repo_name)
         if "allowed_paths" in cfg:
-            lines.append(f"[repos.{repo_name}]")
+            lines.append(f"[repos.{repo_key}]")
             db = cfg.get("db", "")
             if db:
-                lines.append(f'db = "{db}"')
-            items = ", ".join(f'"{p}"' for p in cfg["allowed_paths"])
+                lines.append(f"db = {_toml_string(db)}")
+            items = ", ".join(_toml_string(p) for p in cfg["allowed_paths"])
             lines.append(f"allowed_paths = [{items}]")
             lines.append("")
         else:
             for vault_name in sorted(cfg.get("vaults", {})):
                 vault = cfg["vaults"][vault_name]
-                lines.append(f"[repos.{repo_name}.vaults.{vault_name}]")
-                items = ", ".join(f'"{p}"' for p in vault.get("allowed_paths", []))
+                lines.append(f"[repos.{repo_key}.vaults.{_toml_key(vault_name)}]")
+                items = ", ".join(_toml_string(p) for p in vault.get("allowed_paths", []))
                 lines.append(f"allowed_paths = [{items}]")
                 lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
@@ -108,9 +126,7 @@ def _save_allowlist(repos: dict[str, dict]) -> None:
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request, next: str = "/") -> HTMLResponse:
-    return templates.TemplateResponse(
-        "login.html", {"request": request, "next": next, "error": None}
-    )
+    return templates.TemplateResponse(request, "login.html", {"next": next, "error": None})
 
 
 @app.post("/login")
@@ -119,20 +135,20 @@ def login_submit(
     token: Annotated[str, Form()],
     next: Annotated[str, Form()] = "/",
 ) -> Any:
-    import secrets
-
     try:
         expected = get_configured_token()
     except RuntimeError as exc:
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {"request": request, "next": next, "error": str(exc)},
+            {"next": next, "error": str(exc)},
             status_code=500,
         )
-    if not secrets.compare_digest(token.strip(), expected):
+    if not tokens_match(token.strip(), expected):
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {"request": request, "next": next, "error": "Invalid token."},
+            {"next": next, "error": "Invalid token."},
             status_code=401,
         )
     return make_session_response(next_path=next)
@@ -156,8 +172,9 @@ def dashboard(request: Request) -> HTMLResponse:
     events = read_events(limit=200)
     daemon = _daemon_status()
     return templates.TemplateResponse(
+        request,
         "audit.html",
-        {"request": request, "events": events, "daemon": daemon, "active": "audit"},
+        {"events": events, "daemon": daemon, "active": "audit"},
     )
 
 
@@ -177,9 +194,9 @@ def daemon_page(request: Request) -> HTMLResponse:
     require_session(request)
     daemon = _daemon_status()
     return templates.TemplateResponse(
+        request,
         "daemon.html",
         {
-            "request": request,
             "daemon": daemon,
             "socket_path": str(default_socket_path()),
             "active": "daemon",
@@ -232,8 +249,9 @@ def allowlist_page(request: Request) -> HTMLResponse:
     repos = data.get("repos", {})
     daemon = _daemon_status()
     return templates.TemplateResponse(
+        request,
         "allowlist.html",
-        {"request": request, "repos": repos, "daemon": daemon, "active": "allowlist"},
+        {"repos": repos, "daemon": daemon, "active": "allowlist"},
     )
 
 
@@ -255,6 +273,11 @@ def allowlist_upsert_repo(
     name = repo_name.strip()
     if not name:
         return JSONResponse({"ok": False, "error": "repo name required"}, status_code=400)
+    if not _BARE_KEY.fullmatch(name):
+        return JSONResponse(
+            {"ok": False, "error": "repo name may contain only letters, digits, '-' and '_'"},
+            status_code=400,
+        )
     paths = [p.strip() for p in allowed_paths.splitlines() if p.strip()]
     data = _load_allowlist_raw()
     repos = data.get("repos", {})
@@ -292,8 +315,9 @@ def entries_page(request: Request) -> HTMLResponse:
     require_session(request)
     daemon = _daemon_status()
     return templates.TemplateResponse(
+        request,
         "entries.html",
-        {"request": request, "daemon": daemon, "active": "entries"},
+        {"daemon": daemon, "active": "entries"},
     )
 
 
