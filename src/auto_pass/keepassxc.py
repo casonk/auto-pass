@@ -202,6 +202,8 @@ def seed_keepass_password_env_for_tty(
                 cache_path.unlink(missing_ok=True)
             else:
                 payload = json.loads(cache_path.read_text(encoding="utf-8"))
+                if not isinstance(payload, dict):
+                    raise ValueError("cache is not a JSON object")
                 cached_password = str(payload.get("password", "")).strip()
                 if cached_password:
                     os.environ[password_env_name] = cached_password
@@ -225,12 +227,13 @@ def seed_keepass_password_env_for_tty(
     if not config.database_password_cache_enabled:
         return
     try:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(
-            json.dumps({"password": entered}, ensure_ascii=True) + "\n",
-            encoding="utf-8",
-        )
-        cache_path.chmod(0o600)
+        cache_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        # Create the file owner-only from the start: write_text then chmod would
+        # leave the master password readable under the umask for a moment.
+        fd = os.open(cache_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            os.fchmod(handle.fileno(), 0o600)
+            handle.write(json.dumps({"password": entered}, ensure_ascii=True) + "\n")
     except OSError:
         return
 
