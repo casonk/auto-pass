@@ -22,3 +22,9 @@ CLAUDE.md
 
 # Local config backups
 *.bak-*
+
+# coverage output
+coverage.xml
+.coverage
+.coverage.*
+htmlcov/
