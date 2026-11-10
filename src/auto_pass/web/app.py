@@ -32,6 +32,7 @@ from ..allowlist import default_allowlist_path
 from ..client import ProvisioningClient, ProvisioningClientError
 from ..keepassxc import (
     KeepassCommandError,
+    list_keepassxc_entries,
     resolve_keepassxc_entry_all_fields,
     upsert_keepassxc_entry,
     with_keepassxc_context,
@@ -319,6 +320,24 @@ def entries_page(request: Request) -> HTMLResponse:
         "entries.html",
         {"daemon": daemon, "active": "entries"},
     )
+
+
+@app.get("/entries/list")
+def entries_list(request: Request) -> JSONResponse:
+    """Entry paths only (never field values), for the browsable list on the Entries page."""
+    require_session(request)
+    try:
+        ctx = _get_admin_context()
+    except ProvisioningClientError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=503)
+    with with_keepassxc_context(
+        ctx["master_db_path"], ctx["master_db_password"], ctx.get("master_key_file", "")
+    ):
+        try:
+            entries = list_keepassxc_entries("/")
+        except KeepassCommandError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    return JSONResponse({"ok": True, "entries": sorted(e for e in entries if not e.endswith("/"))})
 
 
 @app.post("/entries/get")

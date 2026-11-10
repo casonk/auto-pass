@@ -16,7 +16,7 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="mono fw-bold">{{ repo_name }}</span>
         <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-outline-secondary" onclick="editRepo('{{ repo_name }}', {{ repo_cfg.allowed_paths | tojson }})">Edit</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="editRepo('{{ repo_name }}', {{ repo_cfg.get('allowed_paths', []) | tojson }})">Edit</button>
           <button class="btn btn-sm btn-outline-danger" onclick="deleteRepo('{{ repo_name }}')">Delete</button>
         </div>
       </div>

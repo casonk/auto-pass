@@ -4,6 +4,13 @@ All notable changes to `auto-pass` are documented here.
 
 ## Unreleased
 
+- Web UI Entries page: a browsable, filterable list of entry paths shown as a collapsible
+  folder tree (new `GET /entries/list`, paths only, never field values). Looking up an entry now
+  builds the result with DOM calls instead of pasting the entry's JSON into an `onclick`
+  attribute, which broke "Edit this entry" and put the password in the page; failures show the
+  HTTP status, and password and token fields have Show and Copy buttons.
+- Web UI Allowlist page no longer returns a server error when a repo uses the simple
+  `db = "…"` form with no `allowed_paths`.
 - Fix the `web` extra: it had been written under `[tool.pytest.ini_options]`, so
   `pip install "auto-pass[web]"` installed nothing. It is now declared in
   `[project.optional-dependencies]`, and a test keeps it there.

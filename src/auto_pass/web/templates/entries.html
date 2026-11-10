@@ -11,6 +11,20 @@
 </div>
 {% endif %}
 
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center gap-2">
+    <span>Entries <span id="entry-count" class="text-muted small"></span></span>
+    <span class="d-flex gap-1">
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setAllFolders(true)">Expand</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setAllFolders(false)">Collapse</button>
+    </span>
+    <input type="search" id="entry-filter" class="form-control form-control-sm mono w-25" placeholder="filter" oninput="renderEntries()">
+  </div>
+  <div id="entry-list" class="list-group list-group-flush" style="max-height: 320px; overflow-y: auto;">
+    <div class="list-group-item text-muted small">Loading…</div>
+  </div>
+</div>
+
 <div class="row g-4">
   <!-- Lookup -->
   <div class="col-lg-6">
@@ -73,24 +87,153 @@ function showSetAlert(ok, msg) {
   setTimeout(() => { el.innerHTML = ''; }, 5000);
 }
 
+let allEntries = [];
+
+async function loadEntries() {
+  const el = document.getElementById('entry-list');
+  try {
+    const j = await (await fetch('/entries/list')).json();
+    if (!j.ok) { el.innerHTML = ''; const d = document.createElement('div'); d.className = 'list-group-item text-danger small'; d.textContent = j.error; el.appendChild(d); return; }
+    allEntries = j.entries;
+    renderEntries();
+  } catch (e) {
+    el.textContent = 'Could not load entries.';
+  }
+}
+
+function buildTree(paths) {
+  const root = {folders: {}, entries: []};
+  for (const path of paths) {
+    const parts = path.split('/').filter(Boolean);
+    let node = root;
+    for (const part of parts.slice(0, -1)) {
+      node = node.folders[part] = node.folders[part] || {folders: {}, entries: []};
+    }
+    node.entries.push({name: parts[parts.length - 1] || path, path});
+  }
+  return root;
+}
+
+function countEntries(node) {
+  return node.entries.length + Object.values(node.folders).reduce((n, f) => n + countEntries(f), 0);
+}
+
+function renderNode(node, container, open) {
+  for (const name of Object.keys(node.folders).sort()) {
+    const folder = node.folders[name];
+    const details = document.createElement('details');
+    details.open = open;
+    const summary = document.createElement('summary');
+    summary.className = 'list-group-item list-group-item-action mono small';
+    summary.style.cursor = 'pointer';
+    summary.textContent = `📁 ${name} (${countEntries(folder)})`;
+    details.appendChild(summary);
+    const inner = document.createElement('div');
+    inner.style.paddingLeft = '1.25rem';
+    renderNode(folder, inner, open);
+    details.appendChild(inner);
+    container.appendChild(details);
+  }
+  for (const entry of node.entries.sort((x, y) => x.name.localeCompare(y.name))) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'list-group-item list-group-item-action mono small';
+    b.textContent = `🔑 ${entry.name}`;
+    b.title = entry.path;
+    b.onclick = () => { document.getElementById('lookup-path').value = entry.path; lookupEntry(); };
+    container.appendChild(b);
+  }
+}
+
+function setAllFolders(open) {
+  document.querySelectorAll('#entry-list details').forEach(d => { d.open = open; });
+}
+
+function renderEntries() {
+  const needle = document.getElementById('entry-filter').value.trim().toLowerCase();
+  const shown = allEntries.filter(p => p.toLowerCase().includes(needle));
+  document.getElementById('entry-count').textContent = `${shown.length} of ${allEntries.length}`;
+  const el = document.getElementById('entry-list');
+  el.innerHTML = '';
+  if (!shown.length) {
+    const d = document.createElement('div'); d.className = 'list-group-item text-muted small'; d.textContent = 'No entries.'; el.appendChild(d); return;
+  }
+  // Collapsed by default; while filtering, matching folders open so the hits are visible.
+  renderNode(buildTree(shown), el, needle !== '');
+}
+
+function showLookupError(message) {
+  const el = document.getElementById('lookup-result');
+  el.innerHTML = '';
+  const d = document.createElement('div');
+  d.className = 'alert alert-danger py-2';
+  d.textContent = message;
+  el.appendChild(d);
+}
+
 async function lookupEntry() {
   const path = document.getElementById('lookup-path').value.trim();
   if (!path) return;
   const fd = new FormData(); fd.append('entry_path', path);
-  const r = await fetch('/entries/get', {method:'POST', body: fd});
-  const j = await r.json();
-  const el = document.getElementById('lookup-result');
-  if (!j.ok) {
-    el.innerHTML = `<div class="alert alert-danger py-2">${j.error}</div>`;
+  let j;
+  try {
+    const r = await fetch('/entries/get', {method: 'POST', body: fd});
+    const text = await r.text();
+    try { j = JSON.parse(text); }
+    catch (e) { showLookupError(`Lookup failed (HTTP ${r.status}): ${text.slice(0, 200) || 'empty reply'}`); return; }
+  } catch (e) {
+    showLookupError(`Lookup failed: ${e}`);
     return;
   }
-  const rows = Object.entries(j.fields).map(([k, v]) => {
-    const safe = String(v).replace(/</g, '&lt;');
-    const isSecret = k.toLowerCase().includes('password') || k.toLowerCase().includes('token');
-    return `<tr><td class="mono text-muted">${k}</td><td class="mono">${isSecret ? '<span class="text-muted">[hidden]</span>' : safe}</td></tr>`;
-  }).join('');
-  el.innerHTML = `<table class="table table-sm table-bordered">${rows}</table>
-    <button class="btn btn-sm btn-outline-secondary" onclick="fillSetForm(${JSON.stringify(j.fields)}, '${path.replace(/'/g,"\\'")}')">Edit this entry</button>`;
+  if (!j.ok) { showLookupError(j.error || 'Lookup failed.'); return; }
+  const el = document.getElementById('lookup-result');
+  el.innerHTML = '';
+  const table = document.createElement('table');
+  table.className = 'table table-sm table-bordered';
+  const names = Object.keys(j.fields);
+  const summary = document.createElement('div');
+  summary.className = 'text-muted small mb-1';
+  summary.textContent = `${names.length} field(s) for ${path}`;
+  el.appendChild(summary);
+  for (const [k, v] of Object.entries(j.fields)) {
+    const tr = table.insertRow();
+    const key = tr.insertCell(); key.className = 'mono text-muted'; key.textContent = k;
+    const val = tr.insertCell(); val.className = 'mono'; val.style.whiteSpace = 'pre-wrap';
+    const lower = k.toLowerCase();
+    const secret = lower.includes('password') || lower.includes('token');
+    if (v === '') {
+      const none = document.createElement('span'); none.className = 'text-muted'; none.textContent = '(empty)';
+      val.appendChild(none);
+    } else if (secret) {
+      const text = document.createElement('span'); text.className = 'text-muted'; text.textContent = '[hidden]';
+      const show = document.createElement('button');
+      show.type = 'button'; show.className = 'btn btn-sm btn-outline-secondary ms-2 py-0'; show.textContent = 'Show';
+      let shown = false;
+      show.onclick = () => {
+        shown = !shown;
+        text.className = shown ? '' : 'text-muted';
+        text.textContent = shown ? v : '[hidden]';
+        show.textContent = shown ? 'Hide' : 'Show';
+      };
+      const copy = document.createElement('button');
+      copy.type = 'button'; copy.className = 'btn btn-sm btn-outline-secondary ms-1 py-0'; copy.textContent = 'Copy';
+      copy.onclick = async () => {
+        try { await navigator.clipboard.writeText(v); copy.textContent = 'Copied'; }
+        catch (e) { copy.textContent = 'Copy failed'; }
+        setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+      };
+      val.append(text, show, copy);
+    } else {
+      val.textContent = v;
+    }
+  }
+  el.appendChild(table);
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.className = 'btn btn-sm btn-outline-secondary';
+  edit.textContent = 'Edit this entry';
+  edit.onclick = () => fillSetForm(j.fields, path);
+  el.appendChild(edit);
 }
 
 function fillSetForm(fields, path) {
@@ -113,7 +256,10 @@ async function setEntry() {
   const r = await fetch('/entries/set', {method:'POST', body: fd});
   const j = await r.json();
   showSetAlert(j.ok, j.ok ? `Entry ${j.mode === 'add' ? 'created' : 'updated'}: ${path}` : j.error);
+  if (j.ok) loadEntries();
 }
+
+loadEntries();
 
 function clearSetForm() {
   ['s-path','s-un','s-pw','s-url','s-notes'].forEach(id => document.getElementById(id).value = '');
