@@ -1,0 +1,171 @@
+<link rel="stylesheet" href="/_portfolio/theme.css">
+<script src="/_portfolio/theme.js"></script>
+<style>
+  :root {
+    --bs-body-font-family: var(--font);
+    --bs-body-font-size: var(--font-size);
+    --bs-body-color: var(--text);
+    --bs-body-bg: var(--bg);
+    --bs-secondary-color: var(--muted);
+    --bs-secondary-bg: var(--surface);
+    --bs-tertiary-bg: var(--surface2);
+    --bs-border-color: var(--border);
+    --bs-link-color: var(--accent);
+    --bs-link-hover-color: color-mix(in srgb, var(--accent) 78%, var(--text));
+  }
+
+  html,
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+  }
+
+  body,
+  button,
+  input,
+  select,
+  textarea {
+    font-size: var(--font-size);
+  }
+
+  a { color: var(--accent); }
+  .text-muted,
+  .form-text { color: var(--muted) !important; }
+
+  .auto-pass-nav,
+  .card,
+  .dropdown-menu {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border);
+  }
+
+  .auto-pass-nav .navbar-brand,
+  .auto-pass-nav .nav-link,
+  .auto-pass-nav .navbar-toggler {
+    color: var(--text);
+  }
+
+  .auto-pass-nav .nav-link:hover,
+  .auto-pass-nav .nav-link:focus,
+  .auto-pass-nav .nav-link.active {
+    color: var(--accent);
+  }
+
+  .navbar-toggler {
+    border-color: var(--border);
+    background: var(--surface2);
+  }
+
+  .card {
+    --bs-card-color: var(--text);
+    --bs-card-bg: var(--surface);
+    --bs-card-border-color: var(--border);
+  }
+
+  .card-header {
+    color: var(--text);
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+
+  .form-control {
+    color: var(--text);
+    background: var(--surface2);
+    border-color: var(--border);
+  }
+
+  .form-control::placeholder { color: var(--muted); }
+  .form-control:focus {
+    color: var(--text);
+    background: var(--surface2);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 .25rem color-mix(in srgb, var(--accent) 24%, transparent);
+  }
+
+  .table {
+    --bs-table-color: var(--text);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--border);
+    --bs-table-hover-color: var(--text);
+    --bs-table-hover-bg: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  .table-dark {
+    --bs-table-color: var(--text);
+    --bs-table-bg: var(--surface2);
+    --bs-table-border-color: var(--border);
+  }
+
+  .btn-primary,
+  .btn-success {
+    --bs-btn-color: var(--accent-ink);
+    --bs-btn-bg: var(--accent);
+    --bs-btn-border-color: var(--accent);
+    --bs-btn-hover-color: var(--accent-ink);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--accent) 84%, var(--text));
+    --bs-btn-hover-border-color: var(--accent);
+    --bs-btn-active-color: var(--accent-ink);
+    --bs-btn-active-bg: color-mix(in srgb, var(--accent) 76%, var(--text));
+    --bs-btn-active-border-color: var(--accent);
+  }
+
+  .btn-outline-primary,
+  .btn-outline-secondary {
+    --bs-btn-color: var(--accent);
+    --bs-btn-border-color: var(--border);
+    --bs-btn-hover-color: var(--accent-ink);
+    --bs-btn-hover-bg: var(--accent);
+    --bs-btn-hover-border-color: var(--accent);
+    --bs-btn-active-color: var(--accent-ink);
+    --bs-btn-active-bg: var(--accent);
+    --bs-btn-active-border-color: var(--accent);
+  }
+
+  .btn-danger,
+  .btn-outline-danger {
+    --bs-btn-color: var(--red);
+    --bs-btn-bg: var(--red-dim);
+    --bs-btn-border-color: var(--red);
+    --bs-btn-hover-color: var(--text);
+    --bs-btn-hover-bg: var(--red);
+    --bs-btn-hover-border-color: var(--red);
+    --bs-btn-active-color: var(--text);
+    --bs-btn-active-bg: var(--red);
+    --bs-btn-active-border-color: var(--red);
+  }
+
+  .alert-danger {
+    --bs-alert-color: var(--red);
+    --bs-alert-bg: var(--red-dim);
+    --bs-alert-border-color: color-mix(in srgb, var(--red) 55%, var(--border));
+  }
+
+  .alert-success {
+    --bs-alert-color: var(--green);
+    --bs-alert-bg: var(--green-dim);
+    --bs-alert-border-color: color-mix(in srgb, var(--green) 55%, var(--border));
+  }
+
+  .alert-warning {
+    --bs-alert-color: var(--yellow);
+    --bs-alert-bg: var(--yellow-dim);
+    --bs-alert-border-color: color-mix(in srgb, var(--yellow) 55%, var(--border));
+  }
+
+  .badge-locked,
+  .bg-danger { background: var(--red-dim) !important; color: var(--red) !important; }
+  .badge-unlocked,
+  .bg-success { background: var(--green-dim) !important; color: var(--green) !important; }
+  .bg-secondary,
+  .bg-dark { background: var(--surface2) !important; color: var(--text) !important; }
+
+  .login-page { min-height: calc(100vh - 48px); padding: 12px; }
+  .login-card { width: min(360px, 100%); }
+
+  @media (max-width: 600px) {
+    .login-page { min-height: calc(100vh - 88px); }
+  }
+</style>
+<script src="/_portfolio/chrome.js" defer></script>
