@@ -4,6 +4,7 @@ All notable changes to `auto-pass` are documented here.
 
 ## Unreleased
 
+- Web UI: load the shared portfolio theme and top bar (`/_portfolio/theme.css`, `theme.js`, `chrome.js`) instead of the fixed dark Bootstrap theme, so the UI follows the portfolio theme choice.
 - Web UI Entries page: a browsable, filterable list of entry paths shown as a collapsible
   folder tree (new `GET /entries/list`, paths only, never field values). Looking up an entry now
   builds the result with DOM calls instead of pasting the entry's JSON into an `onclick`
