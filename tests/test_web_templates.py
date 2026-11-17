@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 TEMPLATES = Path(__file__).resolve().parents[1] / "src" / "auto_pass" / "web" / "templates"
 
 
