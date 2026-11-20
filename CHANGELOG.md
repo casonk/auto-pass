@@ -4,6 +4,16 @@ All notable changes to `auto-pass` are documented here.
 
 ## Unreleased
 
+- Scoped vaults for K3s: `auto-pass scope list|sync|manifest|verify` builds one small kdbx per service
+  from the master (only the entries a scope names, custom attributes kept, history dropped, its own random
+  password stored in the master under `auto-pass/scopes/`), applies it as a Secret over `kubectl` stdin, and
+  emits RBAC manifests (pod ServiceAccounts with no permissions and no token automount; a sync Role limited to
+  the named Secret). Two-way sync is done by auto-pass alone: only the `Password` of `writable` entries that
+  already exist, latest modification wins when both sides changed (a future-dated pod timestamp is not believed),
+  each pod copy consumed once. `writeback = "secret"` returns the pod's vault through one named Secret
+  (`auto-pass scope return` in the pod, `scope pull`/`sync` on the host).
+  `auto-pass consolidate [--common]` splits the master's current contents into `common.kdbx` and merges every
+  sub-vault into the master under `<alias>/` (plan by default, backups on `--apply`). See `docs/k3s-scoped-vaults.md`, including the K3s `secrets-encryption` steps that need root.
 - Provisioning daemon: add a scoped `set` operation (`ProvisioningClient.set`) that replaces the password of an
   existing entry. It needs `writable_paths` in the repo's allowlist block, which is separate from and does not imply
   `allowed_paths`; it never creates an entry, takes the value only over the Unix socket and the vault password over

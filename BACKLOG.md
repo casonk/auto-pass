@@ -27,6 +27,12 @@ Mark items `[x]` when complete and move them to Done.
   covering the new hash. Until then, put no attribution lines in commit messages or PR bodies;
   GitHub builds the squash message from them.
 
+- [ ] [manual:2026-11-20] **Finish scoped vaults on the live K3s cluster** — the code and tests are in, but
+  nothing has run against the cluster. Remaining: enable `secrets-encryption` (needs root, see
+  `docs/k3s-scoped-vaults.md`), apply `scope manifest`, run `scope verify`, define the real
+  `config/scopes.local.toml`, run `consolidate` (plan, then `--apply`), schedule `scope sync --apply` through
+  clockwork, and wire the first writable service to `auto-pass scope return` (return-Secret transport).
+
 ## In Progress
 
 ## Done

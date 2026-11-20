@@ -555,6 +555,70 @@ def build_parser() -> argparse.ArgumentParser:
         help="Emit a JSON object instead of summary text.",
     )
 
+    scope_parser = subparsers.add_parser(
+        "scope",
+        help="Build per-service scoped vaults from the master and deliver them to K3s.",
+    )
+    scope_parser.add_argument(
+        "--config", help="Scope manifest (default: config/scopes.local.toml)."
+    )
+    scope_sub = scope_parser.add_subparsers(dest="scope_command", required=True)
+    scope_list = scope_sub.add_parser("list", help="Show each scope and the entries it matches.")
+    scope_list.add_argument("scopes", nargs="*", help="Scope names (default: all).")
+    scope_sync = scope_sub.add_parser(
+        "sync",
+        help="Pull permitted write-back, rebuild changed scopes, optionally push to the cluster.",
+    )
+    scope_sync.add_argument("scopes", nargs="*", help="Scope names (default: all).")
+    scope_sync.add_argument(
+        "--apply", action="store_true", help="Apply changed Secrets to the cluster with kubectl."
+    )
+    scope_sync.add_argument(
+        "--force", action="store_true", help="Rebuild (and with --apply, re-apply) regardless."
+    )
+    scope_sync.add_argument(
+        "--no-write-back", action="store_true", help="Skip reading changes back from pod copies."
+    )
+    scope_sync.add_argument("--json", action="store_true", help="Emit JSON.")
+    scope_manifest = scope_sub.add_parser(
+        "manifest",
+        help="Print RBAC manifests (no secret data): pod ServiceAccounts and the sync Role.",
+    )
+    scope_manifest.add_argument("scopes", nargs="*", help="Scope names (default: all).")
+    scope_manifest.add_argument(
+        "--with-namespace", action="store_true", help="Also emit each Namespace."
+    )
+    scope_pull = scope_sub.add_parser(
+        "pull", help="Fetch pods' returned vaults from the cluster (sync does this itself)."
+    )
+    scope_pull.add_argument("scopes", nargs="*", help="Scope names (default: all).")
+    scope_return = scope_sub.add_parser(
+        "return",
+        help="Run inside a pod: send the modified vault back through the return Secret.",
+    )
+    scope_return.add_argument("--vault", required=True, help="Path of the pod's writable vault.")
+    scope_return.add_argument("--secret", required=True, help="Return Secret name.")
+    scope_return.add_argument("--namespace", default="", help="Default: the pod's namespace.")
+    scope_verify = scope_sub.add_parser(
+        "verify", help="Check by impersonation that no scope can read another's Secret."
+    )
+    scope_verify.add_argument("scopes", nargs="*", help="Scope names (default: all).")
+    scope_verify.add_argument("--json", action="store_true", help="Emit JSON.")
+
+    consolidate_parser = subparsers.add_parser(
+        "consolidate",
+        help="Merge every configured sub-vault into the master under <alias>/ (plan by default).",
+    )
+    consolidate_parser.add_argument(
+        "--apply", action="store_true", help="Back up, then merge. Without it, only print a plan."
+    )
+    consolidate_parser.add_argument(
+        "--common",
+        action="store_true",
+        help="First move what the master holds today into a new common.kdbx sub-vault.",
+    )
+    consolidate_parser.add_argument("--json", action="store_true", help="Emit JSON.")
+
     web_parser = subparsers.add_parser(
         "web",
         help="Start the web UI (requires: pip install 'auto-pass[web]').",
@@ -698,6 +762,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "web":
         return _cmd_web(args)
+
+    if args.command == "scope":
+        return _cmd_scope(args)
+
+    if args.command == "consolidate":
+        return _cmd_consolidate(args)
 
     raise AssertionError(f"Unhandled command: {args.command}")
 
@@ -1034,3 +1104,175 @@ def _rotation_policy_from_args(args: argparse.Namespace) -> PasswordPolicy | Non
         exclude_chars=fields["exclude_chars"] if fields["exclude_chars"] is not None else "",
         every_group=fields["every_group"] if fields["every_group"] is not None else True,
     )
+
+
+# ------------------------------------------------------------------
+# Scoped vaults
+# ------------------------------------------------------------------
+
+
+def _master_credentials():
+    """Master database credentials: from the unlocked daemon, else env/profile or a prompt."""
+    from .client import ProvisioningClient, ProvisioningClientError
+    from .keepassxc import KeepassXCStoreConfig, _resolve_context
+    from .scopes import Master, ScopeError
+
+    try:
+        ctx = ProvisioningClient().admin_context()
+        return Master(
+            ctx["master_db_path"], ctx["master_db_password"], ctx.get("master_key_file", "")
+        )
+    except (OSError, ProvisioningClientError):
+        pass
+    resolved = _resolve_context(KeepassXCStoreConfig(), allow_interactive=True)
+    password = resolved.db_password or getpass("Master database password: ")
+    if not password:
+        raise ScopeError("no master password: unlock the daemon (auto-pass unlock) or set env")
+    return Master(resolved.db_path, password, resolved.key_file)
+
+
+def _cmd_scope(args: argparse.Namespace) -> int:
+    from . import k8s
+    from . import scopes as sc
+    from .keepassxc import KeepassCommandError
+
+    try:
+        if args.scope_command == "return":  # runs in the pod, which has no scope config
+            k8s.push_return(Path(args.vault), args.secret, args.namespace)
+            print("returned")
+            return 0
+        cfg = sc.load_config(Path(args.config) if args.config else None)
+        chosen = sc.select(cfg, args.scopes) if hasattr(args, "scopes") else []
+
+        if args.scope_command == "pull":
+            for scope in chosen:
+                dest = cfg.writeback_file(scope)
+                if scope.writeback != "secret" or dest is None:
+                    print(f"{scope.name}: not using a return Secret")
+                    continue
+                print(
+                    f"{scope.name}: {'new' if k8s.pull_return(scope, cfg, dest) else 'no change'}"
+                )
+            return 0
+
+        if args.scope_command == "manifest":
+            print(k8s.render_manifests(chosen, cfg, with_namespace=args.with_namespace), end="")
+            return 0
+
+        if args.scope_command == "verify":
+            checks = k8s.verify_isolation(chosen, cfg)
+            if args.json:
+                print(json.dumps([c.as_dict() for c in checks], indent=2))
+            else:
+                for c in checks:
+                    mark = "ok  " if c.ok else "FAIL"
+                    print(f"{mark} {c.subject} may {c.action}? {c.got} (want {c.expected})")
+            return 0 if all(c.ok for c in checks) else 1
+
+        master = _master_credentials()
+        state = sc.State.load()
+
+        if args.scope_command == "list":
+            from . import kdbx
+
+            entries = kdbx.read_entries(master.db_path, master.password, master.key_file)
+            for scope in chosen:
+                hits = sorted(sc.match_entries(scope, entries))
+                print(f"{scope.name} -> {scope.namespace}/{scope.secret_name} ({len(hits)})")
+                for path in hits:
+                    mark = "rw" if sc._matches(scope.writable, path) else "ro"
+                    print(f"  [{mark}] {path}")
+            return 0
+
+        # sync
+        results = []
+        failed = False
+        for scope in chosen:
+            if scope.writeback == "secret" and not args.no_write_back:
+                try:  # fetch the pod's latest vault first, so write-back sees it
+                    dest = cfg.writeback_file(scope)
+                    if dest is not None:
+                        k8s.pull_return(scope, cfg, dest)
+                except k8s.K8sError as exc:
+                    print(f"warning: {scope.name}: {exc}", file=sys.stderr)
+            res = sc.sync_scope(
+                scope,
+                cfg,
+                master,
+                state,
+                force=args.force,
+                write_back=not args.no_write_back,
+                need_payload=args.apply,
+            )
+            if args.apply and res.secret_payload:
+                data, password, digest = res.secret_payload
+                if args.force or res.rebuilt or sc.needs_apply(state, scope, digest):
+                    k8s.apply_secret(scope, cfg, data, password, digest)
+                    if scope.writeback == "secret":
+                        k8s.ensure_return_secret(scope, cfg)
+                    sc.mark_applied(state, scope, digest)
+                    res.applied = True
+            res.secret_payload = None
+            state.save()
+            results.append(res)
+            failed = failed or bool(res.conflicts)
+        if args.json:
+            print(json.dumps([r.summary() for r in results], indent=2))
+        else:
+            for r in results:
+                bits = [f"{r.matched} entries", "rebuilt" if r.rebuilt else "unchanged"]
+                if r.applied:
+                    bits.append("applied")
+                if r.written_back:
+                    bits.append(f"written back: {', '.join(r.written_back)}")
+                print(f"{r.name}: {'; '.join(bits)}")
+                for label, items in (
+                    ("resolved", r.resolved),
+                    ("conflict (master kept)", r.conflicts),
+                    ("ignored", r.ignored),
+                    ("warning", r.warnings),
+                ):
+                    for item in items:
+                        print(f"  {label}: {item}", file=sys.stderr)
+        return 1 if failed else 0
+    except (sc.ScopeError, k8s.K8sError, KeepassCommandError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _cmd_consolidate(args: argparse.Namespace) -> int:
+    from . import consolidate as cons
+    from .keepassxc import KeepassCommandError
+    from .scopes import ScopeError
+
+    try:
+        master = _master_credentials()
+        if args.apply:
+            plans, backups = cons.apply(master, with_common=args.common)
+        else:
+            plans, backups = cons.plan(master, with_common=args.common), []
+    except (ScopeError, KeepassCommandError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if args.json:
+        payload = [
+            {
+                "alias": p.alias,
+                "entries": p.entries,
+                "new": p.new,
+                "skipped": p.skipped_reason,
+            }
+            for p in plans
+        ]
+        print(json.dumps({"vaults": payload, "backups": [str(b) for b in backups]}, indent=2))
+        return 0
+    for p in plans:
+        status = f"skip ({p.skipped_reason})" if p.skipped_reason else f"{p.new} new of {p.entries}"
+        if p.create:
+            status = f"create {p.path} from the master's current {p.entries} entries, then merge"
+        print(f"{p.alias}: {status}")
+    for backup in backups:
+        print(f"backup: {backup}")
+    if not args.apply:
+        print("plan only; re-run with --apply to back up and merge")
+    return 0
