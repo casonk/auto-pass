@@ -105,6 +105,9 @@ def scope_documents(scope: Scope, cfg: ScopeConfig, *, with_namespace: bool = Fa
             "automountServiceAccountToken": False,
         }
     )
+    sync_names = [scope.secret_name]
+    if scope.writeback == "secret":
+        sync_names.append(scope.return_secret)
     docs.append(
         {
             "apiVersion": "rbac.authorization.k8s.io/v1",
@@ -116,9 +119,7 @@ def scope_documents(scope: Scope, cfg: ScopeConfig, *, with_namespace: bool = Fa
                 {
                     "apiGroups": [""],
                     "resources": ["secrets"],
-                    "resourceNames": [scope.secret_name, scope.return_secret]
-                    if scope.writeback == "secret"
-                    else [scope.secret_name],
+                    "resourceNames": sync_names,
                     "verbs": ["get", "update", "patch"],
                 },
             ],
