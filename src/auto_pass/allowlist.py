@@ -88,6 +88,10 @@ class AllowlistEnforcer:
         [repos.shock-relay.vaults.your-vault]
         allowed_paths = ["messaging/provider#api-key", "messaging/provider#token"]
 
+    Either form may add ``writable_paths`` (same glob syntax) to let a repo replace the
+    password of an *existing* entry through the daemon's ``set`` operation; see
+    ``is_writable``. It does not imply read access.
+
     ``is_permitted(repo_id, db, entry_path)`` returns True iff the given
     (repo, vault, entry) triple matches the allowlist.  When the client
     does not specify a ``db``, ``repo_default_db`` provides the single-vault
@@ -131,6 +135,23 @@ class AllowlistEnforcer:
         if not vault:
             return False
         return any(fnmatch.fnmatch(entry_path, p) for p in vault.get("allowed_paths", []))
+
+    def is_writable(self, repo_id: str, db: str, entry_path: str) -> bool:
+        """Return True iff the allowlist lets the repo change the password of this entry.
+
+        Writing is granted separately from reading, by ``writable_paths``; a path in
+        ``allowed_paths`` alone is read-only.
+        """
+        repo = self._repos.get(repo_id)
+        if not repo:
+            return False
+        if "allowed_paths" in repo or "writable_paths" in repo:
+            if repo.get("db", "") != db:
+                return False
+            patterns = repo.get("writable_paths", [])
+        else:
+            patterns = repo.get("vaults", {}).get(db, {}).get("writable_paths", [])
+        return any(fnmatch.fnmatch(entry_path, p) for p in patterns)
 
     def repo_default_db(self, repo_id: str) -> str | None:
         """Return the single-vault DB alias for simple-form repos, else None."""

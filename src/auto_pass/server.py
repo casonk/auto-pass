@@ -30,6 +30,9 @@ Supported operations (all require caller UID == daemon owner UID):
     {"op": "get",  "path": "entry/path",
                    "field": "password",
                    "db":  "infra"}                   → {"ok": true, "value": "..."}
+    {"op": "set",  "path": "entry/path",
+                   "value": "new password",
+                   "db":  "master"}                  → {"ok": true}
     {"op": "admin_context"}                          → {"ok": true,
                                                          "master_db_path": "...",
                                                          "master_db_password": "...",
@@ -54,7 +57,12 @@ from pathlib import Path
 
 from .allowlist import AllowlistEnforcer, default_allowlist_path, resolve_caller_repo
 from .dbindex import DatabaseIndexError, resolve_database_alias
-from .keepassxc import KeepassCommandError, run_keepassxc_show_direct, validate_keepassxc_database
+from .keepassxc import (
+    KeepassCommandError,
+    run_keepassxc_set_password_direct,
+    run_keepassxc_show_direct,
+    validate_keepassxc_database,
+)
 
 log = logging.getLogger(__name__)
 
@@ -108,6 +116,7 @@ class ProvisioningServer:
         self._enforcer = AllowlistEnforcer(allowlist_path or default_allowlist_path())
         self._db_index_path = db_index_path
         self._state_lock = threading.Lock()
+        self._write_lock = threading.Lock()
         self._db_password: str | None = None
         self._owner_uid = os.getuid()
 
@@ -222,6 +231,9 @@ class ProvisioningServer:
         if op == "get":
             return self._handle_get(request, caller_pid=caller_pid)
 
+        if op == "set":
+            return self._handle_set(request, caller_pid=caller_pid)
+
         if op == "admin_context":
             with self._state_lock:
                 if self._db_password is None:
@@ -306,6 +318,68 @@ class ProvisioningServer:
             }
         )
         return {"ok": True, "value": value}
+
+    def _handle_set(self, request: dict, *, caller_pid: int) -> dict:
+        """Replace the password of an existing entry the caller is allowed to write."""
+        if not self.is_unlocked:
+            return {"ok": False, "error": "daemon is locked — run: auto-pass unlock"}
+
+        entry_path = str(request.get("path", "")).strip()
+        value = request.get("value")
+        requested_db = str(request.get("db", "")).strip()
+        if not entry_path:
+            return {"ok": False, "error": "path required"}
+        if not isinstance(value, str) or not value:
+            return {"ok": False, "error": "value required"}
+        if not requested_db:
+            return {"ok": False, "error": "db required for set"}
+
+        repo_id = resolve_caller_repo(caller_pid)
+        if repo_id is None:
+            log.warning("set denied: unresolvable caller identity pid=%d", caller_pid)
+            return {"ok": False, "error": "could not resolve caller identity"}
+
+        if not self._enforcer.is_writable(repo_id, requested_db, entry_path):
+            log.warning(
+                "set denied: repo=%r db=%r path=%r pid=%d",
+                repo_id,
+                requested_db,
+                entry_path,
+                caller_pid,
+            )
+            return {
+                "ok": False,
+                "error": (
+                    f"repo '{repo_id}' is not permitted to write "
+                    f"'{entry_path}' in vault '{requested_db}'"
+                ),
+            }
+
+        try:
+            db_path, db_password, key_file = self._resolve_db_credentials(requested_db)
+            with self._write_lock:
+                run_keepassxc_set_password_direct(
+                    entry_path,
+                    value,
+                    db_path=db_path,
+                    db_password=db_password,
+                    key_file=key_file,
+                )
+        except KeepassCommandError as exc:
+            return {"ok": False, "error": str(exc)}
+
+        # The audit trail records who changed which entry, never the value.
+        _append_audit(
+            {
+                "ts": datetime.now(UTC).isoformat(),
+                "op": "set",
+                "repo": repo_id,
+                "db": requested_db,
+                "path": entry_path,
+                "pid": caller_pid,
+            }
+        )
+        return {"ok": True}
 
     # ------------------------------------------------------------------
     # Connection handling

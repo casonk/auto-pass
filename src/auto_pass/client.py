@@ -88,6 +88,15 @@ class ProvisioningClient:
         )
         return str(response.get("value", ""))
 
+    def set(self, entry_path: str, value: str, *, db: str) -> None:
+        """Replace the password of an existing entry the calling repo may write.
+
+        Needs ``writable_paths`` in the allowlist; read access alone is not enough. The entry
+        must already exist, and ``db`` is required because a write never infers its vault.
+        """
+        request = {"op": "set", "path": entry_path, "value": value, "db": db}
+        self._require_ok(self._send(request), f"set({entry_path!r})")
+
     def status(self) -> dict:
         """Return the daemon status dict, e.g. ``{"ok": True, "locked": False}``."""
         return self._require_ok(self._send({"op": "status"}), "status")

@@ -530,6 +530,46 @@ def is_keepass_entry_not_found_error(exc: BaseException | str) -> bool:
     return _contains_any(str(exc), ENTRY_NOT_FOUND_MARKERS)
 
 
+def run_keepassxc_set_password_direct(
+    entry: str,
+    new_password: str,
+    *,
+    db_path: str,
+    db_password: str,
+    key_file: str = "",
+) -> None:
+    """Replace the password of an existing entry with explicitly supplied credentials.
+
+    Like run_keepassxc_show_direct this does no env lookup, prompting or notification; the
+    provisioning server calls it after enforcing the allowlist. It never creates an entry
+    or a group, so a typo in a path cannot add something new to the vault.
+    """
+    entry = str(entry or "").strip()
+    if not entry:
+        raise KeepassCommandError("KeePassXC entry is required.")
+    if not new_password or "\n" in new_password or "\r" in new_password:
+        raise KeepassCommandError("new password must be a non-empty single line.")
+    if not db_path or not db_password:
+        raise KeepassCommandError("db_path and db_password are required.")
+
+    context = ResolvedKeepassContext(
+        db_path=db_path,
+        db_password=db_password,
+        key_file=key_file,
+        password_env_name="",
+        interactive_allowed=False,
+    )
+    cmd = ["keepassxc-cli", "edit", "-q", "-p"]
+    if key_file:
+        cmd.extend(["-k", key_file])
+    cmd.extend([db_path, entry])
+    result = _run_keepass_command(
+        cmd, context=context, stdin_suffix=f"{new_password}\n{new_password}\n"
+    )
+    if result.returncode != 0:
+        _raise_keepass_error(result, target=entry, context=context)
+
+
 def ensure_group(
     group: str,
     *,
