@@ -28,6 +28,13 @@ looks like a locked vault or a bad password. `check-access` names the vault and
 prints the command that fixes it (`sudo setfacl -m u:<login>:rw <file>` when the
 file belongs to someone else; auto-pass never runs sudo).
 
+## Scoped vaults for K3s
+
+`auto-pass scope` builds one small database per service from the master, so a pod can
+only ever read its own entries; `auto-pass consolidate` folds the existing sub-vaults into the
+master. RBAC manifests, datastore encryption, delivery and write-back are in
+[`docs/k3s-scoped-vaults.md`](docs/k3s-scoped-vaults.md).
+
 ## Current Scope
 
 - Read one or more fields from a KeePassXC entry.

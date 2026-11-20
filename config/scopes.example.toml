@@ -1,0 +1,40 @@
+# Scoped vaults: one small KeePass database per service, built from the master.
+# Copy to config/scopes.local.toml (gitignored) and edit. See docs/k3s-scoped-vaults.md.
+
+[settings]
+# Where built scoped databases are kept on the host (0700 directory, 0600 files).
+scopes_dir = "~/.local/share/auto-pass/scopes"
+# How to reach the cluster. Use the absolute path; it is a symlink to k3s on K3s.
+kubectl = "/usr/local/bin/kubectl"
+# kubeconfig = "~/.kube/auto-pass-sync.yaml"   # optional; use the sync identity's own file
+
+[k8s]
+# Pod Security Admission level for namespaces created with `scope manifest --with-namespace`.
+pod_security = "restricted"
+
+# The identity auto-pass uses to write the Secrets. Each scope namespace gets a Role that lets
+# it create Secrets and get/update/patch only that scope's named Secret.
+[k8s.sync_subject]
+kind = "ServiceAccount"
+name = "auto-pass-sync"
+namespace = "auto-pass-system"
+
+[scopes.intake]
+# namespace and secret_name default to "<name>" and "<name>-vault".
+namespace = "intake"
+secret_name = "intake-vault"
+# Master entry path globs (fnmatch, like the provisioning allowlist). Only these are copied.
+# Nothing under auto-pass/ is ever copied, whatever the globs say.
+entries = [
+  "infra/intake-*",
+  "shared/object-store",
+]
+# Entries whose *password* the service may change. Must also match `entries`, and must already
+# exist in the master. Two-way sync: the later modification wins.
+writable = ["infra/intake-api-token"]
+# How the pod's modified vault gets back to the host:
+#   "secret" (recommended): the pod runs `auto-pass scope return`, which updates one named
+#            Secret (<secret_name>-return); sync pulls it with kubectl. No host paths.
+#   "path":  you deliver the file to writeback_path yourself (PVC host path, kubectl cp, ...).
+writeback = "secret"
+# writeback_path = "~/.local/share/auto-pass/writeback/intake.kdbx"   # only for "path"

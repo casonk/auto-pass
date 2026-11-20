@@ -1,0 +1,11 @@
+# /etc/rancher/k3s/config.yaml  (server node; needs root to install)
+#
+# Encrypt Secret objects at rest in the datastore. K3s generates the AES-CBC key, writes
+# the EncryptionConfiguration under /var/lib/rancher/k3s/server/cred/ and wires it into the
+# API server; no hand-written EncryptionConfiguration is needed.
+secrets-encryption: true
+
+# Let the login that runs auto-pass read /etc/rancher/k3s/k3s.yaml. Without this every
+# `kubectl` call by that login fails with "permission denied". Replace the group with yours.
+write-kubeconfig-mode: "0640"
+write-kubeconfig-group: "user"

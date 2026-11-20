@@ -28,3 +28,6 @@ coverage.xml
 .coverage
 .coverage.*
 htmlcov/
+
+# Built scoped vaults and pod write-back copies are secrets
+/deploy/**/*.kdbx
