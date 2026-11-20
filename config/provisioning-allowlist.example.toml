@@ -37,3 +37,14 @@ allowed_paths = [
 allowed_paths = [
   "your-vault/intake-*",
 ]
+
+[repos.pin-service.vaults.master]
+# Read access and write access are granted separately. `writable_paths` lets the repo replace
+# the password of an entry that already exists (the daemon's `set` operation); it never creates
+# an entry and does not imply read access, so list a path under both to allow both.
+allowed_paths = [
+  "your-vault/pin/*",
+]
+writable_paths = [
+  "your-vault/pin/*",
+]

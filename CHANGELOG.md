@@ -4,6 +4,11 @@ All notable changes to `auto-pass` are documented here.
 
 ## Unreleased
 
+- Provisioning daemon: add a scoped `set` operation (`ProvisioningClient.set`) that replaces the password of an
+  existing entry. It needs `writable_paths` in the repo's allowlist block, which is separate from and does not imply
+  `allowed_paths`; it never creates an entry, takes the value only over the Unix socket and the vault password over
+  stdin, and its audit record names the repo, vault and path but never the value. Restart the daemon (and unlock it)
+  for it to take effect.
 - Web UI: load the shared portfolio theme and top bar (`/_portfolio/theme.css`, `theme.js`, `chrome.js`) instead of the fixed dark Bootstrap theme, so the UI follows the portfolio theme choice.
 - Web UI Entries page: a browsable, filterable list of entry paths shown as a collapsible
   folder tree (new `GET /entries/list`, paths only, never field values). Looking up an entry now
