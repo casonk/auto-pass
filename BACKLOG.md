@@ -10,6 +10,7 @@ Mark items `[x]` when complete and move them to Done.
 
 ## Pending
 
+- [ ] [codecov:2026-11-20] **Raise patch coverage on PR #30: 47.5581% patched, 451 changed lines have no test coverage.** Files: src/auto_pass/consolidate.py (122 missing, 0%), src/auto_pass/cli.py (120 missing, 21.05%), src/auto_pass/kdbx.py (97 missing, 29.71%), src/auto_pass/scopes.py (81 missing, 70.86%), src/auto_pass/k8s.py (31 missing, 81.76%). Add tests for the uncovered lines. (codecov-pr:30, https://github.com/casonk/auto-pass/pull/30#issuecomment-7052159126)
 - [ ] [manual:2026-10-15] **Ask GitHub Support to purge pre-rewrite commits** — this
   repository's published history was rewritten (most recently on 2026-10-15,
   to remove per-commit AI attribution trailers). GitHub keeps serving the old
