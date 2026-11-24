@@ -48,7 +48,7 @@ for path in \
   "$WIRING_ROOT/config/systemd/wiring-harness-pin-gate.system.service.example"; do
   [[ -f "$path" ]] || { echo "error: required file not found: $path" >&2; exit 1; }
 done
-for command in /usr/bin/bash /usr/bin/curl /usr/bin/grep /usr/bin/sed /usr/bin/sudo /usr/bin/systemctl /usr/bin/systemd-analyze; do
+for command in /usr/bin/bash /usr/bin/curl /usr/bin/grep /usr/bin/sed /usr/bin/sleep /usr/bin/sudo /usr/bin/systemctl /usr/bin/systemd-analyze; do
   [[ -x "$command" ]] || { echo "error: required command not found: $command" >&2; exit 1; }
 done
 
@@ -107,6 +107,20 @@ cleanup() {
   return "$rc"
 }
 trap cleanup EXIT
+
+wait_for_http() {
+  local label=$1
+  shift
+  local attempt
+  for ((attempt = 1; attempt <= 30; attempt++)); do
+    if /usr/bin/curl --silent --fail "$@" >/dev/null 2>&1; then
+      return 0
+    fi
+    /usr/bin/sleep 1
+  done
+  echo "error: $label did not become ready within 30 seconds" >&2
+  /usr/bin/curl --silent --show-error --fail "$@" >/dev/null
+}
 
 sed_escape() { printf '%s' "$1" | /usr/bin/sed 's/[&|]/\\&/g'; }
 auto_parent=$(sed_escape "$(dirname "$AUTO_PASS_ROOT")")
@@ -179,8 +193,8 @@ cutover_started=1
 /usr/bin/systemctl --user disable --now auto-pass-web.service wiring-harness-pin-gate.service
 /usr/bin/sudo /usr/bin/systemctl enable --now auto-pass-web.service wiring-harness-pin-gate.service
 /usr/bin/sudo /usr/bin/systemctl is-active --quiet auto-pass-web.service wiring-harness-pin-gate.service
-/usr/bin/curl --silent --show-error --fail http://127.0.0.1:8081/login >/dev/null
-/usr/bin/curl --silent --show-error --fail \
+wait_for_http "Auto Pass web UI" http://127.0.0.1:8081/login
+wait_for_http "wiring-harness PIN gate" \
   -H 'X-Pin-Site: clockwork-web' http://127.0.0.1:8781/_pin/unlock >/dev/null
 
 success=1
