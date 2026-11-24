@@ -558,6 +558,8 @@ def web(monkeypatch):
         SimpleNamespace(run=lambda app, **kw: state.ran.append(kw)),
     )
     monkeypatch.delenv("AUTO_PASS_WEB_TOKEN", raising=False)
+    monkeypatch.delenv("AUTO_PASS_WEB_TOKEN_FILE", raising=False)
+    monkeypatch.delenv("CREDENTIALS_DIRECTORY", raising=False)
     monkeypatch.delenv("AUTO_PASS_WEB_TOKEN_KEEPASS_ENTRY", raising=False)
     monkeypatch.delenv("AUTO_PASS_WEB_TOKEN_KEEPASS_DB", raising=False)
 
@@ -584,6 +586,39 @@ def test_web_uses_the_token_from_the_environment(web, monkeypatch, capsys):
     assert web.ran == [{"host": "0.0.0.0", "port": 9999, "log_level": "info"}]
     assert web.requested == []  # the daemon is not asked when the env has a token
     assert "http://0.0.0.0:9999" in capsys.readouterr().out
+
+
+def test_web_uses_an_explicit_token_file_before_the_daemon(web, monkeypatch, tmp_path):
+    token_file = tmp_path / "web-token"
+    token_file.write_text("sealed-token\n", encoding="utf-8")
+    monkeypatch.setenv("AUTO_PASS_WEB_TOKEN_FILE", str(token_file))
+    assert run("web") == 0
+    assert web.requested == []
+    assert cli.os.environ["AUTO_PASS_WEB_TOKEN"] == "sealed-token"
+    monkeypatch.delenv("AUTO_PASS_WEB_TOKEN")
+
+
+def test_web_uses_the_conventional_systemd_credential(web, monkeypatch, tmp_path):
+    (tmp_path / "auto-pass-web-token").write_text("systemd-token", encoding="utf-8")
+    monkeypatch.setenv("CREDENTIALS_DIRECTORY", str(tmp_path))
+    assert run("web") == 0
+    assert web.requested == []
+    assert cli.os.environ["AUTO_PASS_WEB_TOKEN"] == "systemd-token"
+    monkeypatch.delenv("AUTO_PASS_WEB_TOKEN")
+
+
+@pytest.mark.parametrize("contents", [None, "", "   \n"])
+def test_web_fails_closed_for_a_broken_explicit_token_file(
+    web, monkeypatch, tmp_path, capsys, contents
+):
+    token_file = tmp_path / "web-token"
+    if contents is not None:
+        token_file.write_text(contents, encoding="utf-8")
+    monkeypatch.setenv("AUTO_PASS_WEB_TOKEN_FILE", str(token_file))
+    assert run("web") == 1
+    assert web.requested == []
+    assert web.ran == []
+    assert "web token credential" in capsys.readouterr().err
 
 
 def test_web_fetches_its_token_from_the_daemon_when_unset(web, monkeypatch):

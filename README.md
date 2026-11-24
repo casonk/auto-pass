@@ -133,6 +133,40 @@ Install `auto-pass[web]` in that environment if you need the optional web UI.
 The package contains its web templates; the example and local configuration
 files remain in the repository and must be supplied separately.
 
+### Browser unlock while the vault is locked
+
+By default, `auto-pass web` loads its login token from `AUTO_PASS_WEB_TOKEN`,
+then from a token file, and finally from the provisioning daemon. The daemon
+fallback is convenient during normal operation but cannot start the web UI
+after a reboot when the vault is still locked.
+
+On a TPM2-equipped Linux host, keep the vault locked and seal only the PIN
+fingerprint key and web login token. With the daemon temporarily unlocked,
+preview and run the verified cutover:
+
+```bash
+bash scripts/install_tpm_browser_unlock.sh --dry-run
+bash scripts/install_tpm_browser_unlock.sh
+```
+
+Pass `--web-token-db ALIAS` if the `auto-pass/web-token` entry lives outside
+the `infra` vault. The installer calls `sudo` for its narrow privileged steps,
+streams the existing token directly from the daemon into `systemd-creds`,
+binds both credentials to TPM2 PCR 7, switches the PIN gate and web UI from
+their user units to system units, and verifies both loopback services. It
+records the prior unit state and restores the user services if the cutover
+fails. The plaintext token is never written or printed.
+
+The system unit receives the plaintext only through systemd's private
+credentials directory. `auto-pass web` automatically reads the credential
+named `auto-pass-web-token`; `AUTO_PASS_WEB_TOKEN_FILE` can select another
+file. An explicitly configured missing or empty credential fails closed and
+does not fall back to the vault.
+
+This makes the web UI available to submit the KeePass master password; it does
+not seal or automatically unlock that password. A firmware or Secure Boot
+change can invalidate PCR 7, in which case both credentials must be resealed.
+
 For development from a checkout:
 
 ```bash
