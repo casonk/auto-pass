@@ -62,6 +62,10 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   the vault password interactive. Treat an explicitly configured missing or
   empty credential as a fail-closed startup error rather than falling back to
   the locked vault.
+- A successful `systemctl is-active` check only proves that the service process
+  has started; it does not prove that an HTTP server has finished binding its
+  socket. Cutover installers should poll the actual health endpoint for a
+  bounded interval before declaring failure and invoking rollback.
 
 ### Invoking auto-pass from outside its repo root
 
