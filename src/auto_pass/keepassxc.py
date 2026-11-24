@@ -365,7 +365,9 @@ def resolve_keepassxc_entry(
                 context=context,
             )
         except PasswordRetrievalNotificationError as exc:
-            log.warning("password-retrieval notification failed (non-fatal): %s", exc)
+            log.warning(
+                "password-retrieval notification failed (non-fatal): %s", type(exc).__name__
+            )
     return resolved
 
 
@@ -417,7 +419,9 @@ def resolve_keepassxc_entry_all_fields(
                 context=context,
             )
         except PasswordRetrievalNotificationError as exc:
-            log.warning("password-retrieval notification failed (non-fatal): %s", exc)
+            log.warning(
+                "password-retrieval notification failed (non-fatal): %s", type(exc).__name__
+            )
     return fields
 
 

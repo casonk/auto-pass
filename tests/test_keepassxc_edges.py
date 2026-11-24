@@ -522,7 +522,7 @@ def test_a_notification_failure_does_not_lose_the_secret(
     got = kp.resolve_keepassxc_entry("e", {"p": "pw"}, config=config(tmp_path))
 
     assert got == {"p": "hunter2"}
-    assert "channel down" in caplog.text
+    assert "PasswordRetrievalNotificationError" in caplog.text
     assert "hunter2" not in caplog.text
 
 

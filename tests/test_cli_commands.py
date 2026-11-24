@@ -583,9 +583,9 @@ def test_web_without_its_dependencies_says_how_to_install_them(monkeypatch, caps
 def test_web_uses_the_token_from_the_environment(web, monkeypatch, capsys):
     monkeypatch.setenv("AUTO_PASS_WEB_TOKEN", "env-token")
     assert run("web", "--host", "0.0.0.0", "--port", "9999") == 0
-    assert web.ran == [{"host": "0.0.0.0", "port": 9999, "log_level": "info"}]
+    assert web.ran == [{"host": "0.0.0.0", "port": 9999, "log_level": "info", "log_config": None}]
     assert web.requested == []  # the daemon is not asked when the env has a token
-    assert "http://0.0.0.0:9999" in capsys.readouterr().out
+    assert "http://0.0.0.0:9999" in capsys.readouterr().err
 
 
 def test_web_uses_an_explicit_token_file_before_the_daemon(web, monkeypatch, tmp_path):
