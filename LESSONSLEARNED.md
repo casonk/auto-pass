@@ -56,6 +56,12 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   entries in another vault so sibling repos can resolve split-vault access
   without hardcoding local `.kdbx` paths or duplicating secondary-vault
   passwords in repo-specific config.
+- A browser recovery service must not fetch its own bootstrap credential from
+  the vault it exists to unlock. Seal only a narrow, high-entropy web login
+  token with the TPM, pass it through systemd's credential directory, and keep
+  the vault password interactive. Treat an explicitly configured missing or
+  empty credential as a fail-closed startup error rather than falling back to
+  the locked vault.
 
 ### Invoking auto-pass from outside its repo root
 

@@ -924,6 +924,15 @@ def _cmd_web(args: argparse.Namespace) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     if not os.environ.get("AUTO_PASS_WEB_TOKEN", "").strip():
+        try:
+            token = _web_token_from_credential_file()
+        except RuntimeError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        if token is not None:
+            os.environ["AUTO_PASS_WEB_TOKEN"] = token
+
+    if not os.environ.get("AUTO_PASS_WEB_TOKEN", "").strip():
         from .client import ProvisioningClient, ProvisioningClientError
 
         try:
@@ -939,7 +948,8 @@ def _cmd_web(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             print(
-                "  Set AUTO_PASS_WEB_TOKEN in your env, or start and unlock the provisioning daemon.",
+                "  Pass a systemd credential, set AUTO_PASS_WEB_TOKEN, or start and unlock "
+                "the provisioning daemon.",
                 file=sys.stderr,
             )
             return 1
@@ -958,6 +968,32 @@ def _cmd_web(args: argparse.Namespace) -> int:
     print(f"auto-pass web UI on http://{args.host}:{args.port}")
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     return 0
+
+
+def _web_token_from_credential_file() -> str | None:
+    """Load the web token from an explicit file or a systemd credential.
+
+    An explicit ``AUTO_PASS_WEB_TOKEN_FILE`` always wins. Under systemd, the
+    conventional credential name is ``auto-pass-web-token``. A configured but
+    missing or blank file is an error rather than a reason to fall back to the
+    vault: a broken sealed-credential deployment must fail closed.
+    """
+    configured = os.environ.get("AUTO_PASS_WEB_TOKEN_FILE", "").strip()
+    if configured:
+        path = Path(configured)
+    else:
+        credential_dir = os.environ.get("CREDENTIALS_DIRECTORY", "").strip()
+        if not credential_dir:
+            return None
+        path = Path(credential_dir) / "auto-pass-web-token"
+
+    try:
+        token = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"web token credential is unavailable: {path}: {exc}") from exc
+    if not token:
+        raise RuntimeError(f"web token credential is empty: {path}")
+    return token
 
 
 def _cmd_notify_summary(args: argparse.Namespace) -> int:  # noqa: ARG001

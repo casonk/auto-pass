@@ -10,6 +10,12 @@ Mark items `[x]` when complete and move them to Done.
 
 ## Pending
 
+- [ ] [manual:2026-11-24] **Activate and reboot-test the TPM browser unlock path.** Code, tests, sealed-token helper,
+  system-unit templates, and the rollback-capable installer are ready on the implementation branch. With the daemon
+  unlocked, run `bash scripts/install_tpm_browser_unlock.sh --dry-run`, then the same command without `--dry-run`.
+  Reboot once, leave the vault locked, and prove the Auto Pass keypad opens and its `/daemon` page can unlock the
+  daemon. This completes the paired wiring-harness sealed-PIN backlog item.
+
 - [ ] [codecov:2026-11-20] **Raise patch coverage on PR #30: 47.5581% patched, 451 changed lines have no test coverage.** Files: src/auto_pass/consolidate.py (122 missing, 0%), src/auto_pass/cli.py (120 missing, 21.05%), src/auto_pass/kdbx.py (97 missing, 29.71%), src/auto_pass/scopes.py (81 missing, 70.86%), src/auto_pass/k8s.py (31 missing, 81.76%). Add tests for the uncovered lines. (codecov-pr:30, https://github.com/casonk/auto-pass/pull/30#issuecomment-7052159126)
 - [ ] [manual:2026-10-15] **Ask GitHub Support to purge pre-rewrite commits** — this
   repository's published history was rewritten (most recently on 2026-10-15,

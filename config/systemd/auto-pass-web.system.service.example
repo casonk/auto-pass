@@ -1,0 +1,25 @@
+# System-level web UI: starts while the provisioning daemon and vault are locked.
+# First seal the existing KeePass-backed web token with scripts/seal_web_token.sh.
+# Replace <user>, <home>, <auto-pass-bin>, and <path-to> before installing this as
+# /etc/systemd/system/auto-pass-web.service. Disable the user unit before starting
+# this one because only one process may bind the port.
+[Unit]
+Description=Auto Pass credential administration UI (TPM-sealed bootstrap)
+After=luks-volumes.service
+RequiresMountsFor=<path-to>/auto-pass
+
+[Service]
+Type=simple
+User=<user>
+Environment=HOME=<home>
+WorkingDirectory=<path-to>/auto-pass
+LoadCredentialEncrypted=auto-pass-web-token:/etc/credstore.encrypted/auto-pass-web-token
+ExecStart=<auto-pass-bin> web --host 127.0.0.1 --port 8081
+SyslogIdentifier=auto-pass-web
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
