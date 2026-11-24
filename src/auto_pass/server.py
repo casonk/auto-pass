@@ -279,10 +279,7 @@ class ProvisioningServer:
 
         if not self._enforcer.is_permitted(repo_id, db_alias, entry_path):
             log.warning(
-                "get denied: repo=%r db=%r path=%r pid=%d",
-                repo_id,
-                db_alias,
-                entry_path,
+                "get denied by access policy pid=%d",
                 caller_pid,
             )
             return {
@@ -341,10 +338,7 @@ class ProvisioningServer:
 
         if not self._enforcer.is_writable(repo_id, requested_db, entry_path):
             log.warning(
-                "set denied: repo=%r db=%r path=%r pid=%d",
-                repo_id,
-                requested_db,
-                entry_path,
+                "set denied by access policy pid=%d",
                 caller_pid,
             )
             return {
@@ -404,7 +398,7 @@ class ProvisioningServer:
             with contextlib.suppress(OSError):
                 conn.sendall(json.dumps({"ok": False, "error": "invalid JSON"}).encode() + b"\n")
         except Exception as exc:
-            log.error("connection handler error: %s", exc)
+            log.error("connection handler failed: %s", type(exc).__name__)
             with contextlib.suppress(OSError):
                 conn.sendall(json.dumps({"ok": False, "error": "internal error"}).encode() + b"\n")
         finally:
@@ -425,11 +419,7 @@ class ProvisioningServer:
         os.chmod(self._socket_path, 0o600)
         srv_sock.listen(16)
 
-        log.info(
-            "provisioning server listening on %s (master=%s) — locked; run: auto-pass unlock",
-            self._socket_path,
-            self._master_db_path,
-        )
+        log.info("provisioning server listening; locked; run: auto-pass unlock")
 
         def _shutdown(signum: int, frame: object) -> None:
             log.info("shutting down (signal %d)", signum)

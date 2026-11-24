@@ -125,7 +125,7 @@ class TestProvisioningServerGet:
         assert resp["ok"] is False
         assert "identity" in resp["error"]
 
-    def test_get_not_in_allowlist_returns_error(self, tmp_path):
+    def test_get_not_in_allowlist_returns_error(self, tmp_path, caplog):
         allowlist = '[repos.other-repo]\ndb = "master"\nallowed_paths = ["web/github"]\n'
         srv = _make_server(tmp_path, allowlist)
         srv._db_password = "pw"
@@ -137,6 +137,10 @@ class TestProvisioningServerGet:
             )
         assert resp["ok"] is False
         assert "not permitted" in resp["error"]
+        assert "get denied by access policy pid=1" in caplog.text
+        assert "my-repo" not in caplog.text
+        assert "web/github" not in caplog.text
+        assert "master" not in caplog.text
 
     def test_get_path_not_matching_glob_denied(self, tmp_path):
         allowlist = '[repos.my-repo]\ndb = "master"\nallowed_paths = ["infra/*"]\n'

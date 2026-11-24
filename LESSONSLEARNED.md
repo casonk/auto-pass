@@ -71,6 +71,10 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   root-squashed or otherwise restricted home mounts can turn that into
   `203/EXEC`. Execute a system Python path and supply the checkout's source path
   explicitly when the service intentionally runs checkout code.
+- Journal-only logging is a Linux deployment choice, not an application-wide
+  assumption. A cross-platform credential tool should default to private,
+  rotating files where no journal is available, while keeping Linux
+  journal-first and applying the same redaction filter to every destination.
 
 ### Invoking auto-pass from outside its repo root
 

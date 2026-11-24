@@ -178,6 +178,23 @@ Creates `.venv`, installs the package in editable mode, and verifies the
 test and lint dependencies, or `./bootstrap.sh --venv PATH` to build the
 environment elsewhere.
 
+### Logging
+
+Auto Pass logs through the standard library to stderr. On Linux, systemd
+captures service output in the journal, so file logging is off by default. On
+macOS and Windows, Auto Pass automatically writes an owner-private rotating log
+(5 MB, three backups) to the platform log directory:
+
+- macOS: `~/Library/Logs/auto-pass/auto-pass.log`
+- Windows: `%LOCALAPPDATA%\\auto-pass\\Logs\\auto-pass.log`
+
+Use `--log-level` or `AUTO_PASS_LOG_LEVEL` to select the level. Use
+`--log-file default`, `--log-file off`, a custom path, or the
+`AUTO_PASS_LOG_FILE` equivalent to override file logging. Secret-looking values
+are redacted before either stderr or a file handler emits them; logs must still
+never be treated as a place to intentionally record credentials. Global flags
+precede the command, for example `auto-pass --log-level debug web`.
+
 <details>
 <summary>Why not <code>pip install -e .</code> directly?</summary>
 

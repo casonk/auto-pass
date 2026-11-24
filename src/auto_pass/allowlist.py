@@ -105,7 +105,7 @@ class AllowlistEnforcer:
 
     def _load(self) -> None:
         if not self._path.exists():
-            log.debug("allowlist not found at %s — all requests denied", self._path)
+            log.debug("allowlist not found — all requests denied")
             return
         with open(self._path, "rb") as fh:
             data = tomllib.load(fh)

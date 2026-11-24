@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from getpass import getpass, getuser
@@ -34,6 +35,8 @@ from .rotation import (
     sync_rotation_todo,
 )
 
+log = logging.getLogger(__name__)
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -55,6 +58,19 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Override AUTO_PASS_PROFILE for this command. The value is normalized "
             "the same way as profile names in the env file."
+        ),
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=("debug", "info", "warning", "error", "critical"),
+        help="Logging level. Defaults to AUTO_PASS_LOG_LEVEL or info.",
+    )
+    parser.add_argument(
+        "--log-file",
+        metavar="PATH|default|off",
+        help=(
+            "Rotating log destination. Defaults to AUTO_PASS_LOG_FILE; automatic on "
+            "macOS/Windows and off on Linux."
         ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -649,6 +665,10 @@ def main(argv: list[str] | None = None) -> int:
         activate_keepass_profile(args.profile)
         apply_keepass_profile_environment()
 
+    from .logging_setup import configure_logging
+
+    configure_logging(getattr(args, "log_level", None), getattr(args, "log_file", None))
+
     if args.command == "get":
         field_names = args.field or ["username", "password"]
         attrs_map = {name: name for name in field_names}
@@ -786,13 +806,9 @@ def _provision_client(args: argparse.Namespace):
 
 
 def _cmd_serve(args: argparse.Namespace) -> int:
-    import logging
-
     from .allowlist import default_allowlist_path
     from .dbindex import DatabaseIndexError, resolve_database_alias
     from .server import ProvisioningServer, default_socket_path
-
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     db_index_path = Path(args.db_index) if getattr(args, "db_index", None) else None
     master_alias = (getattr(args, "master_alias", None) or "master").strip() or "master"
@@ -808,10 +824,9 @@ def _cmd_serve(args: argparse.Namespace) -> int:
             pass
 
     if not db_path:
-        print(
+        log.error(
             "error: master database path not set — use --db-path, "
-            "export AUTO_PASS_KEEPASSXC_DB_PATH, or add the master alias to keepass-dbs.local.json",
-            file=sys.stderr,
+            "export AUTO_PASS_KEEPASSXC_DB_PATH, or add the master alias to keepass-dbs.local.json"
         )
         return 1
 
@@ -822,10 +837,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     socket_path = Path(args.socket) if args.socket else default_socket_path()
 
     if not allowlist_path.exists():
-        print(
-            f"warning: allowlist not found at {allowlist_path} — all credential requests will be denied",
-            file=sys.stderr,
-        )
+        log.warning("allowlist not found — all credential requests will be denied")
 
     server = ProvisioningServer(
         master_db_path=db_path,
@@ -913,21 +925,14 @@ def _cmd_web(args: argparse.Namespace) -> int:
 
         from .web.app import app
     except ImportError:
-        print(
-            "error: web dependencies not installed. Run: pip install 'auto-pass[web]'",
-            file=sys.stderr,
-        )
+        log.error("web dependencies not installed. Run: pip install 'auto-pass[web]'")
         return 1
-
-    import logging
-
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     if not os.environ.get("AUTO_PASS_WEB_TOKEN", "").strip():
         try:
             token = _web_token_from_credential_file()
         except RuntimeError as exc:
-            print(f"error: {exc}", file=sys.stderr)
+            log.error("%s", exc)
             return 1
         if token is not None:
             os.environ["AUTO_PASS_WEB_TOKEN"] = token
@@ -943,18 +948,15 @@ def _cmd_web(args: argparse.Namespace) -> int:
                 raise RuntimeError("daemon returned empty web token")
             os.environ["AUTO_PASS_WEB_TOKEN"] = token
         except (OSError, ProvisioningClientError) as exc:
-            print(
-                f"error: AUTO_PASS_WEB_TOKEN is not set and daemon is unavailable: {exc}",
-                file=sys.stderr,
-            )
-            print(
-                "  Pass a systemd credential, set AUTO_PASS_WEB_TOKEN, or start and unlock "
+            log.error(
+                "AUTO_PASS_WEB_TOKEN is not set and daemon is unavailable: %s. "
+                "Pass a systemd credential, set AUTO_PASS_WEB_TOKEN, or start and unlock "
                 "the provisioning daemon.",
-                file=sys.stderr,
+                exc,
             )
             return 1
         except RuntimeError as exc:
-            print(f"error: {exc}", file=sys.stderr)
+            log.error("%s", exc)
             return 1
 
     from .web.auth import get_configured_token
@@ -962,11 +964,11 @@ def _cmd_web(args: argparse.Namespace) -> int:
     try:
         get_configured_token()
     except RuntimeError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        log.error("%s", exc)
         return 1
 
-    print(f"auto-pass web UI on http://{args.host}:{args.port}")
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    log.info("web UI listening on http://%s:%d", args.host, args.port)
+    uvicorn.run(app, host=args.host, port=args.port, log_level="info", log_config=None)
     return 0
 
 
@@ -990,9 +992,9 @@ def _web_token_from_credential_file() -> str | None:
     try:
         token = path.read_text(encoding="utf-8").strip()
     except OSError as exc:
-        raise RuntimeError(f"web token credential is unavailable: {path}: {exc}") from exc
+        raise RuntimeError(f"web token credential is unavailable: {type(exc).__name__}") from exc
     if not token:
-        raise RuntimeError(f"web token credential is empty: {path}")
+        raise RuntimeError("web token credential is empty")
     return token
 
 

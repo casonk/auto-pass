@@ -4,6 +4,11 @@ All notable changes to `auto-pass` are documented here.
 
 ## Unreleased
 
+- Add portfolio-standard cross-platform logging: stderr/journal on Linux,
+  automatic owner-private rotating files on macOS and Windows, explicit level
+  and file controls, and redaction before either destination emits a record.
+  Web/Uvicorn output now uses the same handlers, and daemon policy warnings no
+  longer expose repository, vault, or entry names.
 - Scoped vaults for K3s: `auto-pass scope list|sync|manifest|verify` builds one small kdbx per service
   from the master (only the entries a scope names, custom attributes kept, history dropped, its own random
   password stored in the master under `auto-pass/scopes/`), applies it as a Secret over `kubectl` stdin, and
