@@ -66,6 +66,11 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   has started; it does not prove that an HTTP server has finished binding its
   socket. Cutover installers should poll the actual health endpoint for a
   bounded interval before declaring failure and invoking rollback.
+- A system service should not use a console-script executable below a user's
+  home directory: PID 1 may need to resolve it before dropping privileges, and
+  root-squashed or otherwise restricted home mounts can turn that into
+  `203/EXEC`. Execute a system Python path and supply the checkout's source path
+  explicitly when the service intentionally runs checkout code.
 
 ### Invoking auto-pass from outside its repo root
 
