@@ -147,10 +147,23 @@ fi
 /usr/bin/systemd-analyze verify \
   "$tmpdir/auto-pass-web.service" "$tmpdir/wiring-harness-pin-gate.service"
 
+# A system unit does not inherit the user's PATH; the PIN gate runs `auto-pass`, so the PATH the unit
+# sets must resolve it. Checked before anything is installed so a bad unit never replaces a working one.
+unit_path=$(/usr/bin/sed -n 's/^Environment=PATH=//p' "$tmpdir/wiring-harness-pin-gate.service" | /usr/bin/head -n 1)
+if [[ -z "$unit_path" ]]; then
+  echo "error: the PIN gate unit sets no PATH, so it cannot run auto-pass" >&2
+  exit 1
+fi
+if ! /usr/bin/env -i PATH="$unit_path" /usr/bin/bash -c 'command -v auto-pass' >/dev/null; then
+  echo "error: auto-pass is not found on the PIN gate unit's PATH ($unit_path)" >&2
+  exit 1
+fi
+
 if [[ $DRY_RUN -eq 1 ]]; then
   echo "dry run: would seal the PIN key and Auto Pass web token to TPM2 PCR 7"
   echo "dry run: would install and enable system auto-pass-web.service and wiring-harness-pin-gate.service"
   echo "dry run: would disable the two same-named user services after recording their state"
+  echo "dry run: the PIN gate unit's PATH resolves auto-pass"
   echo "dry run: would verify the Auto Pass login page and PIN keypad over loopback"
   success=1
   exit 0

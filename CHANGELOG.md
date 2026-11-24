@@ -4,6 +4,8 @@ All notable changes to `auto-pass` are documented here.
 
 ## Unreleased
 
+- The TPM browser-unlock installer now checks, before installing anything, that the PIN gate unit sets a `PATH` that resolves
+  `auto-pass` (a system unit does not inherit the user's `PATH`, and the gate failed every check without it).
 - Add portfolio-standard cross-platform logging: stderr/journal on Linux,
   automatic owner-private rotating files on macOS and Windows, explicit level
   and file controls, and redaction before either destination emits a record.
