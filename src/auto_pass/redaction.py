@@ -19,14 +19,12 @@ _URL_USERINFO = re.compile(r"(\b[a-z][a-z0-9+.-]*://[^\s/:@]+:)[^\s/@]+(@)", re.
 _AUTH_HEADER = re.compile(
     r"\b(Bearer|Basic)\s+(?!\[REDACTED\])[A-Za-z0-9._~+/=-]{8,}", re.IGNORECASE
 )
-_NAMED_SECRET = re.compile(
-    r"""(?ix)
+_NAMED_SECRET = re.compile(r"""(?ix)
     (\b[\w.-]*(?:secret|token|passw(?:or)?d|passwd|api[_-]?key|private[_-]?key|credential)[\w.-]*
      ["']?\s*[:=]\s*["']?)
     (?!\[REDACTED\])
     [^\s"',;&)\]}]{8,}
-    """
-)
+    """)
 _TOKEN_SHAPES = tuple(
     re.compile(pattern)
     for pattern in (
