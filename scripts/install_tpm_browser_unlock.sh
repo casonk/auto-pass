@@ -127,12 +127,10 @@ auto_parent=$(sed_escape "$(dirname "$AUTO_PASS_ROOT")")
 wiring_parent=$(sed_escape "$(dirname "$WIRING_ROOT")")
 user_escaped=$(sed_escape "$SERVICE_USER")
 home_escaped=$(sed_escape "$SERVICE_HOME")
-bin_escaped=$(sed_escape "$AUTO_PASS_BIN")
 
 /usr/bin/sed \
   -e "s|<user>|$user_escaped|g" \
   -e "s|<home>|$home_escaped|g" \
-  -e "s|<auto-pass-bin>|$bin_escaped|g" \
   -e "s|<path-to>|$auto_parent|g" \
   "$AUTO_PASS_ROOT/config/systemd/auto-pass-web.system.service.example" \
   > "$tmpdir/auto-pass-web.service"
