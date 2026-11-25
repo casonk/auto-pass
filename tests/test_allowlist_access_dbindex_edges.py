@@ -130,14 +130,19 @@ def test_a_missing_allowlist_denies_everything_and_a_later_file_is_picked_up_on_
 
 
 def test_a_corrupt_allowlist_on_reload_fails_closed(tmp_path):
-    path = write(tmp_path, '[repos.r]\ndb = "master"\nallowed_paths = ["x"]\n')
+    path = write(
+        tmp_path,
+        'admin_repos = ["auto-pass"]\n[repos.r]\ndb = "master"\nallowed_paths = ["x"]\n',
+    )
     enforcer = AllowlistEnforcer(path)
     assert enforcer.is_permitted("r", "master", "x")
+    assert enforcer.is_admin_repo("auto-pass")
     path.write_text("[repos.r\nbroken", encoding="utf-8")
     with pytest.raises(Exception):  # noqa: B017, PT011 - tomllib.TOMLDecodeError
         enforcer.reload()
     # the old permissions must not survive a reload that could not read the new file
     assert not enforcer.is_permitted("r", "master", "x")
+    assert not enforcer.is_admin_repo("auto-pass")
     assert enforcer.known_repos() == []
 
 

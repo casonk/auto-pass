@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-from auto_pass.allowlist import AllowlistEnforcer, resolve_caller_repo
+import pytest
+
+from auto_pass.allowlist import AllowlistEnforcer, AllowlistError, resolve_caller_repo
 
 
 def _write(path: Path, content: str) -> None:
@@ -20,6 +22,27 @@ class TestAllowlistEnforcer:
         _write(p, "[repos]\n")
         e = AllowlistEnforcer(p)
         assert not e.is_permitted("any-repo", "testdb", "any/path")
+
+    def test_admin_repos_are_separate_and_missing_means_none(self, tmp_path):
+        missing = tmp_path / "missing.toml"
+        _write(missing, "[repos]\n")
+        assert not AllowlistEnforcer(missing).is_admin_repo("auto-pass")
+
+        configured = tmp_path / "configured.toml"
+        _write(configured, 'admin_repos = [" auto-pass ", "trusted-admin"]\n[repos]\n')
+        enforcer = AllowlistEnforcer(configured)
+        assert enforcer.is_admin_repo("auto-pass")
+        assert enforcer.is_admin_repo("trusted-admin")
+        assert not enforcer.is_admin_repo("other")
+
+    @pytest.mark.parametrize(
+        "invalid", ['admin_repos = "auto-pass"\n', 'admin_repos = ["auto-pass", ""]\n']
+    )
+    def test_invalid_admin_repos_configuration_is_rejected(self, tmp_path, invalid):
+        path = tmp_path / "invalid.toml"
+        _write(path, invalid)
+        with pytest.raises(AllowlistError, match="admin_repos"):
+            AllowlistEnforcer(path)
 
     def test_exact_path_permitted(self, tmp_path):
         p = tmp_path / "al.toml"

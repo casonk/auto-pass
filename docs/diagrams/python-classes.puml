@@ -1,7 +1,16 @@
-@startuml classes_checkout
+@startuml classes_auto-pass
 set namespaceSeparator none
+class "AccessFinding" as src.auto_pass.access.AccessFinding {
+  hint : str
+  label : str
+  path : Path
+  problem : str
+  as_dict() -> dict[str, str]
+}
 class "AllowlistEnforcer" as src.auto_pass.allowlist.AllowlistEnforcer {
+  is_admin_repo(repo_id: str) -> bool
   is_permitted(repo_id: str, db: str, entry_path: str) -> bool
+  is_writable(repo_id: str, db: str, entry_path: str) -> bool
   known_repos() -> list[str]
   permitted_paths(repo_id: str, db: str) -> list[str]
   reload() -> None
@@ -10,9 +19,27 @@ class "AllowlistEnforcer" as src.auto_pass.allowlist.AllowlistEnforcer {
 }
 class "<color:red>AllowlistError</color>" as src.auto_pass.allowlist.AllowlistError {
 }
+class "Check" as src.auto_pass.k8s.Check {
+  action : str
+  expected : str
+  got : str
+  ok : bool
+  subject : str
+  as_dict() -> dict
+}
 class "<color:red>DatabaseIndexError</color>" as src.auto_pass.dbindex.DatabaseIndexError {
 }
+class "Entry" as src.auto_pass.kdbx.Entry {
+  attachments : int
+  fields : dict[str, str]
+  modified : str
+  path : str
+  digest(key: bytes) -> str
+  password_digest(key: bytes) -> str
+}
 class "<color:red>EnvFileError</color>" as src.auto_pass.envfile.EnvFileError {
+}
+class "<color:red>K8sError</color>" as src.auto_pass.k8s.K8sError {
 }
 class "<color:red>KeepassCommandError</color>" as src.auto_pass.keepassxc.KeepassCommandError {
 }
@@ -26,6 +53,11 @@ class "KeepassXCStoreConfig" as src.auto_pass.keepassxc.KeepassXCStoreConfig {
   database_password_env_names : tuple[str, ...]
   database_path : str
   database_path_env_names : tuple[str, ...]
+}
+class "Master" as src.auto_pass.scopes.Master {
+  db_path : str
+  key_file : str
+  password : str
 }
 class "PasswordPolicy" as src.auto_pass.rotation.PasswordPolicy {
   every_group : bool
@@ -53,6 +85,7 @@ class "ProvisioningClient" as src.auto_pass.client.ProvisioningClient {
   is_running() -> bool
   lock() -> None
   reload() -> None
+  set(entry_path: str, value: str) -> None
   status() -> dict
   unlock(password: str) -> None
 }
@@ -64,6 +97,9 @@ class "ProvisioningServer" as src.auto_pass.server.ProvisioningServer {
   lock() -> None
   serve() -> None
   unlock(password: str) -> bool
+}
+class "RedactingFilter" as src.auto_pass.logging_setup.RedactingFilter {
+  filter(record: logging.LogRecord) -> bool
 }
 class "ResolvedKeepassContext" as src.auto_pass.keepassxc.ResolvedKeepassContext {
   db_password : str
@@ -94,5 +130,65 @@ class "RotationRegistry" as src.auto_pass.rotation.RotationRegistry {
   rotation_interval_days : int | None
   schema_version : int
   updated_at : str
+}
+class "Scope" as src.auto_pass.scopes.Scope {
+  allow_empty : bool
+  entries : tuple[str, ...]
+  name : str
+  namespace : str
+  output : str
+  return_secret : str
+  secret_name : str
+  writable : tuple[str, ...]
+  writeback : str
+  writeback_path : str
+}
+class "ScopeConfig" as src.auto_pass.scopes.ScopeConfig {
+  kubeconfig : str
+  kubectl : tuple[str, ...]
+  pod_security : str
+  scopes : dict[str, Scope]
+  scopes_dir : Path
+  sync_kind : str
+  sync_name : str
+  sync_namespace : str
+  output_path(scope: Scope) -> Path
+  writeback_file(scope: Scope) -> Path | None
+}
+class "<color:red>ScopeError</color>" as src.auto_pass.scopes.ScopeError {
+}
+class "ScopeResult" as src.auto_pass.scopes.ScopeResult {
+  applied : bool
+  conflicts : list[str]
+  ignored : list[str]
+  matched : int
+  name : str
+  rebuilt : bool
+  resolved : list[str]
+  secret_payload : tuple[bytes, str, str] | None
+  warnings : list[str]
+  written_back : list[str]
+  summary() -> dict
+}
+class "State" as src.auto_pass.scopes.State {
+  key : bytes
+  path : Path
+  scopes : dict[str, dict]
+  get(name: str) -> dict
+  load(path: Path | None) -> State
+  save() -> None
+}
+class "VaultPlan" as src.auto_pass.consolidate.VaultPlan {
+  alias : str
+  create : bool
+  entries : int
+  new : int
+  path : str
+  skipped_reason : str
+  target_paths : list[str]
+}
+class "_SafeRotatingFileHandler" as src.auto_pass.logging_setup._SafeRotatingFileHandler {
+  stream
+  doRollover() -> None
 }
 @enduml

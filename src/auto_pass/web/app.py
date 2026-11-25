@@ -94,11 +94,18 @@ def _toml_key(name: str) -> str:
     return name if _BARE_KEY.fullmatch(name) else _toml_string(name)
 
 
-def _save_allowlist(repos: dict[str, dict]) -> None:
-    """Write repos dict back to the allowlist TOML file."""
+def _save_allowlist(repos: dict[str, dict], *, admin_repos: object = ()) -> None:
+    """Write supported authorization fields back without weakening admin grants."""
     path = default_allowlist_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = ["# Provisioning allowlist — managed by auto-pass web", ""]
+    if not isinstance(admin_repos, (list, tuple)) or any(
+        not isinstance(repo, str) or not repo.strip() for repo in admin_repos
+    ):
+        raise ValueError("admin_repos must be a list of non-empty repository names")
+    if admin_repos:
+        items = ", ".join(_toml_string(repo.strip()) for repo in admin_repos)
+        lines.extend([f"admin_repos = [{items}]", ""])
     for repo_name in sorted(repos):
         cfg = repos[repo_name]
         repo_key = _toml_key(repo_name)
@@ -109,6 +116,9 @@ def _save_allowlist(repos: dict[str, dict]) -> None:
                 lines.append(f"db = {_toml_string(db)}")
             items = ", ".join(_toml_string(p) for p in cfg["allowed_paths"])
             lines.append(f"allowed_paths = [{items}]")
+            writable = ", ".join(_toml_string(p) for p in cfg.get("writable_paths", []))
+            if writable:
+                lines.append(f"writable_paths = [{writable}]")
             lines.append("")
         else:
             for vault_name in sorted(cfg.get("vaults", {})):
@@ -116,6 +126,9 @@ def _save_allowlist(repos: dict[str, dict]) -> None:
                 lines.append(f"[repos.{repo_key}.vaults.{_toml_key(vault_name)}]")
                 items = ", ".join(_toml_string(p) for p in vault.get("allowed_paths", []))
                 lines.append(f"allowed_paths = [{items}]")
+                writable = ", ".join(_toml_string(p) for p in vault.get("writable_paths", []))
+                if writable:
+                    lines.append(f"writable_paths = [{writable}]")
                 lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -286,7 +299,7 @@ def allowlist_upsert_repo(
     if db.strip():
         repo_cfg["db"] = db.strip()
     repos[name] = repo_cfg
-    _save_allowlist(repos)
+    _save_allowlist(repos, admin_repos=data.get("admin_repos", []))
     with contextlib.suppress(OSError, ProvisioningClientError):
         _client().reload()
     return JSONResponse({"ok": True})
@@ -300,7 +313,7 @@ def allowlist_delete_repo(request: Request, repo_name: str) -> JSONResponse:
     if repo_name not in repos:
         return JSONResponse({"ok": False, "error": "repo not found"}, status_code=404)
     del repos[repo_name]
-    _save_allowlist(repos)
+    _save_allowlist(repos, admin_repos=data.get("admin_repos", []))
     with contextlib.suppress(OSError, ProvisioningClientError):
         _client().reload()
     return JSONResponse({"ok": True})

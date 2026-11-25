@@ -33,7 +33,7 @@ Supported operations (all require caller UID == daemon owner UID):
     {"op": "set",  "path": "entry/path",
                    "value": "new password",
                    "db":  "master"}                  → {"ok": true}
-    {"op": "admin_context"}                          → {"ok": true,
+    {"op": "admin_context"}  (admin_repos only)     → {"ok": true,
                                                          "master_db_path": "...",
                                                          "master_db_password": "...",
                                                          "master_key_file": "..."}
@@ -235,16 +235,32 @@ class ProvisioningServer:
             return self._handle_set(request, caller_pid=caller_pid)
 
         if op == "admin_context":
+            repo_id = resolve_caller_repo(caller_pid)
+            if repo_id is None:
+                log.warning("admin context denied: unresolvable caller identity pid=%d", caller_pid)
+                return {"ok": False, "error": "admin context denied"}
+            if not self._enforcer.is_admin_repo(repo_id):
+                log.warning("admin context denied by access policy pid=%d", caller_pid)
+                return {"ok": False, "error": "admin context denied"}
             with self._state_lock:
                 if self._db_password is None:
                     return {"ok": False, "error": "daemon is locked"}
-                return {
+                response = {
                     "ok": True,
                     "master_db_path": self._master_db_path,
                     "master_db_password": self._db_password,
                     "master_key_file": self._master_key_file,
                     "master_db_alias": self._master_db_alias,
                 }
+            _append_audit(
+                {
+                    "ts": datetime.now(UTC).isoformat(),
+                    "op": "admin_context",
+                    "repo": repo_id,
+                    "pid": caller_pid,
+                }
+            )
+            return response
 
         return {"ok": False, "error": f"unknown op: {op!r}"}
 
