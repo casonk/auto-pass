@@ -10,6 +10,7 @@ Mark items `[x]` when complete and move them to Done.
 
 ## Pending
 
+- [ ] [codecov:2026-11-25] **Raise patch coverage on PR #37: 96.875% patched, 1 changed lines have no test coverage.** Files: src/auto_pass/web/app.py (1 missing, 92.85%). Add tests for the uncovered lines. (codecov-pr:37, https://github.com/casonk/auto-pass/pull/37#issuecomment-7150505798)
 - [ ] [manual:2026-11-24] **Reboot-test the installed TPM browser unlock path.** The sealed credentials and system
   services are installed, enabled, and healthy. Reboot once, leave the vault locked, and prove the Auto Pass keypad
   opens and its `/daemon` page can unlock the daemon. This completes the paired wiring-harness sealed-PIN backlog
