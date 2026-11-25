@@ -20,7 +20,7 @@
     </span>
     <input type="search" id="entry-filter" class="form-control form-control-sm mono w-25" placeholder="filter" oninput="renderEntries()">
   </div>
-  <div id="entry-list" class="list-group list-group-flush" style="max-height: 320px; overflow-y: auto;">
+  <div id="entry-list" class="entry-scroller list-group list-group-flush">
     <div class="list-group-item text-muted small">Loading…</div>
   </div>
 </div>
@@ -124,7 +124,7 @@ function renderNode(node, container, open) {
     const details = document.createElement('details');
     details.open = open;
     const summary = document.createElement('summary');
-    summary.className = 'list-group-item list-group-item-action mono small';
+    summary.className = 'entry-select-item list-group-item list-group-item-action mono';
     summary.style.cursor = 'pointer';
     summary.textContent = `📁 ${name} (${countEntries(folder)})`;
     details.appendChild(summary);
@@ -137,8 +137,8 @@ function renderNode(node, container, open) {
   for (const entry of node.entries.sort((x, y) => x.name.localeCompare(y.name))) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'list-group-item list-group-item-action mono small';
-    b.textContent = `🔑 ${entry.name}`;
+    b.className = 'entry-select-item list-group-item list-group-item-action mono';
+    b.textContent = `🔑 ${entry.path}`;
     b.title = entry.path;
     b.onclick = () => { document.getElementById('lookup-path').value = entry.path; lookupEntry(); };
     container.appendChild(b);

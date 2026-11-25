@@ -73,6 +73,11 @@ Unlike `CHATHISTORY.md`, this file should keep only reusable lessons that should
   assumption. A cross-platform credential tool should default to private,
   rotating files where no journal is available, while keeping Linux
   journal-first and applying the same redaction filter to every destination.
+- A shared-theme consumer must not locally shrink themed text with fixed `rem`
+  sizes and then stack relative helpers such as Bootstrap's `small`. Use the
+  theme's font-size token directly for selectable or scrollable content, and
+  render the complete value that a click will select rather than hiding it only
+  in a tooltip.
 
 ### Invoking auto-pass from outside its repo root
 
