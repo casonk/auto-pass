@@ -4,6 +4,9 @@ All notable changes to `auto-pass` are documented here.
 
 ## Unreleased
 
+- Fix the Entries selector scroller to show each complete entry path, wrap long
+  paths inside the scroller, and use the portfolio theme's normal font size
+  instead of stacking hard-coded body, monospace, and `small` reductions.
 - The TPM browser-unlock installer now checks, before installing anything, that the PIN gate unit sets a `PATH` that resolves
   `auto-pass` (a system unit does not inherit the user's `PATH`, and the gate failed every check without it).
 - Harden the provisioning daemon's `admin_context` operation: matching the

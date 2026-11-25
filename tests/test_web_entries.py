@@ -42,6 +42,16 @@ def test_entries_page_has_the_list_tree_and_filter():
     assert "function buildTree" in html and "setAllFolders(true)" in html
 
 
+def test_entry_selector_shows_full_paths_at_the_theme_font_size():
+    base = _render("base.html")
+    entries = _render("entries.html", daemon={"running": True, "locked": False})
+    assert ".mono { font-family: var(--mono); }" in base
+    assert ".entry-scroller .entry-select-item" in entries
+    assert "font-size: var(--font-size, 1rem)" in entries
+    assert "b.textContent = `🔑 ${entry.path}`" in entries
+    assert "mono small" not in entries
+
+
 def test_entries_lookup_does_not_embed_fields_in_an_attribute():
     html = _render("entries.html", daemon={"running": True, "locked": False})
     assert "JSON.stringify(j.fields)" not in html
