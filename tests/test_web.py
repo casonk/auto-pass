@@ -372,7 +372,9 @@ def test_a_reload_failure_does_not_undo_the_save(client, fake):
 def test_the_saved_file_lists_repos_in_sorted_order_and_keeps_vault_scoped_entries(client, fake):
     fake.allowlist.parent.mkdir(parents=True)
     fake.allowlist.write_text(
-        '[repos.zeta.vaults.infra]\nallowed_paths = ["codecov/*"]\n\n'
+        'admin_repos = ["auto-pass"]\n\n'
+        '[repos.zeta.vaults.infra]\nallowed_paths = ["codecov/*"]\n'
+        'writable_paths = ["codecov/write"]\n\n'
         '[repos.zeta.vaults.master]\nallowed_paths = ["dev/*"]\n',
         encoding="utf-8",
     )
@@ -380,9 +382,10 @@ def test_the_saved_file_lists_repos_in_sorted_order_and_keeps_vault_scoped_entri
     data = saved(fake)
     assert list(data["repos"]) == ["alpha", "zeta"]
     assert data["repos"]["zeta"]["vaults"] == {
-        "infra": {"allowed_paths": ["codecov/*"]},
+        "infra": {"allowed_paths": ["codecov/*"], "writable_paths": ["codecov/write"]},
         "master": {"allowed_paths": ["dev/*"]},
     }
+    assert data["admin_repos"] == ["auto-pass"]
 
 
 @pytest.mark.parametrize(
@@ -445,11 +448,18 @@ def test_the_allowlist_pages_read_what_is_on_disk(client, fake):
 
 
 def test_deleting_a_repo_removes_only_that_repo(client, fake):
-    add(client, repo_name="keep", allowed_paths="a")
+    fake.allowlist.parent.mkdir(parents=True)
+    fake.allowlist.write_text(
+        'admin_repos = ["auto-pass"]\n\n'
+        '[repos.keep]\ndb = "master"\nallowed_paths = ["a"]\nwritable_paths = ["a"]\n',
+        encoding="utf-8",
+    )
     add(client, repo_name="drop", allowed_paths="b")
     fake.calls.clear()
     assert client.delete("/allowlist/repo/drop").json() == {"ok": True}
     assert set(saved(fake)["repos"]) == {"keep"}
+    assert saved(fake)["admin_repos"] == ["auto-pass"]
+    assert saved(fake)["repos"]["keep"]["writable_paths"] == ["a"]
     assert ("reload",) in fake.calls
 
 

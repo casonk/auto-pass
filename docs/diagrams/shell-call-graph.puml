@@ -1,21 +1,52 @@
 @startuml
-title checkout Shell Script Flow
+title auto-pass Shell Script Flow
 left to right direction
 skinparam shadowing false
 skinparam defaultFontName Monospace
 skinparam componentStyle rectangle
 skinparam linetype ortho
 rectangle "bootstrap.sh\n0 local shell edges\n2 external tools" as shell_bootstrap_sh #DBEAFE
+rectangle "scripts/install_tpm_browser_unlock.sh\n0 local shell edges\n7 external tools" as shell_scripts_install_tpm_browser_unlock_sh #DBEAFE
 rectangle "scripts/run_tachometer_profile.sh\n0 local shell edges\n1 external tool" as shell_scripts_run_tachometer_profile_sh #DBEAFE
+rectangle "scripts/seal_web_token.sh\n0 local shell edges\n9 external tools" as shell_scripts_seal_web_token_sh #DBEAFE
+cloud "attempt" as tool_attempt #FEF3C7
 cloud "cat" as tool_cat #FEF3C7
+cloud "chmod" as tool_chmod #FEF3C7
+cloud "chown" as tool_chown #FEF3C7
+cloud "cp" as tool_cp #FEF3C7
+cloud "cut" as tool_cut #FEF3C7
+cloud "decrypt" as tool_decrypt #FEF3C7
+cloud "install" as tool_install #FEF3C7
+cloud "is" as tool_is #FEF3C7
+cloud "mv" as tool_mv #FEF3C7
+cloud "passwd" as tool_passwd #FEF3C7
+cloud "rm" as tool_rm #FEF3C7
 cloud "sed" as tool_sed #FEF3C7
+cloud "systemd-creds" as tool_systemd_creds #FEF3C7
 cloud "tachometer" as tool_tachometer #FEF3C7
+cloud "wc" as tool_wc #FEF3C7
 shell_bootstrap_sh --> tool_cat
 shell_bootstrap_sh --> tool_sed
+shell_scripts_install_tpm_browser_unlock_sh --> tool_attempt
+shell_scripts_install_tpm_browser_unlock_sh --> tool_cat
+shell_scripts_install_tpm_browser_unlock_sh --> tool_chown
+shell_scripts_install_tpm_browser_unlock_sh --> tool_cp
+shell_scripts_install_tpm_browser_unlock_sh --> tool_install
+shell_scripts_install_tpm_browser_unlock_sh --> tool_is
+shell_scripts_install_tpm_browser_unlock_sh --> tool_rm
 shell_scripts_run_tachometer_profile_sh --> tool_tachometer
+shell_scripts_seal_web_token_sh --> tool_cat
+shell_scripts_seal_web_token_sh --> tool_chmod
+shell_scripts_seal_web_token_sh --> tool_cut
+shell_scripts_seal_web_token_sh --> tool_decrypt
+shell_scripts_seal_web_token_sh --> tool_install
+shell_scripts_seal_web_token_sh --> tool_mv
+shell_scripts_seal_web_token_sh --> tool_passwd
+shell_scripts_seal_web_token_sh --> tool_systemd_creds
+shell_scripts_seal_web_token_sh --> tool_wc
 note as shellGraphSummary
-Scanned 2 shell scripts.
+Scanned 4 shell scripts.
 Detected 0 local shell edges.
-Detected 3 external tools.
+Detected 16 external tools.
 end note
 @enduml

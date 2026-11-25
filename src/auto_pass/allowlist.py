@@ -92,6 +92,10 @@ class AllowlistEnforcer:
     password of an *existing* entry through the daemon's ``set`` operation; see
     ``is_writable``. It does not imply read access.
 
+    The top-level ``admin_repos`` list is separate from entry permissions. It names the
+    repositories allowed to request the in-memory master context used by Auto Pass's own
+    administrative UI and commands. Missing or invalid configuration grants no admin access.
+
     ``is_permitted(repo_id, db, entry_path)`` returns True iff the given
     (repo, vault, entry) triple matches the allowlist.  When the client
     does not specify a ``db``, ``repo_default_db`` provides the single-vault
@@ -101,6 +105,7 @@ class AllowlistEnforcer:
     def __init__(self, allowlist_path: Path) -> None:
         self._path = allowlist_path
         self._repos: dict[str, dict] = {}
+        self._admin_repos: frozenset[str] = frozenset()
         self._load()
 
     def _load(self) -> None:
@@ -109,13 +114,24 @@ class AllowlistEnforcer:
             return
         with open(self._path, "rb") as fh:
             data = tomllib.load(fh)
+        raw_admin_repos = data.get("admin_repos", [])
+        if not isinstance(raw_admin_repos, list) or any(
+            not isinstance(repo, str) or not repo.strip() for repo in raw_admin_repos
+        ):
+            raise AllowlistError("admin_repos must be a list of non-empty repository names")
+        self._admin_repos = frozenset(repo.strip() for repo in raw_admin_repos)
         for repo_name, repo_cfg in data.get("repos", {}).items():
             self._repos[str(repo_name)] = dict(repo_cfg)
 
     def reload(self) -> None:
         """Re-read the allowlist file from disk."""
         self._repos = {}
+        self._admin_repos = frozenset()
         self._load()
+
+    def is_admin_repo(self, repo_id: str) -> bool:
+        """Return whether this repository may receive the in-memory master context."""
+        return repo_id in self._admin_repos
 
     def is_permitted(self, repo_id: str, db: str, entry_path: str) -> bool:
         """Return True iff (repo_id, db, entry_path) is allowed by the allowlist."""

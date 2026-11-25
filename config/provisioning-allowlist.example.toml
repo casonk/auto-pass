@@ -12,6 +12,12 @@
 # Run `auto-pass daemon-status` to verify the daemon is running and unlocked.
 # Run `auto-pass serve --allowlist config/provisioning-allowlist.local.toml` to start.
 
+# Administrative context exposes the in-memory master database password and is
+# intentionally separate from entry-level read/write access. List only the
+# repository that runs Auto Pass's trusted administrative UI and commands.
+# Missing or invalid configuration grants no admin access.
+admin_repos = ["auto-pass"]
+
 [repos.nordility]
 # VPN credentials used by nordility when selecting a server.
 allowed_paths = [

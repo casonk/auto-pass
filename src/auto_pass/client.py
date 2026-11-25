@@ -118,7 +118,8 @@ class ProvisioningClient:
 
         Requires the daemon to be unlocked. Used by the web server to perform
         direct KeePassXC operations (entry creation, full reads) as the admin.
-        Hardening of this op (stricter identity check) is tracked in the backlog.
+        The daemon also requires this process's repository identity in the
+        allowlist's top-level ``admin_repos`` list.
         """
         return self._require_ok(self._send({"op": "admin_context"}), "admin_context")
 

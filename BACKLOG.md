@@ -42,3 +42,7 @@ Mark items `[x]` when complete and move them to Done.
 ## In Progress
 
 ## Done
+
+- [x] [manual:2026-11-24] **Restrict provisioning `admin_context` to explicit admin repositories.** Same-UID callers
+  must also resolve to a repository in the allowlist's top-level `admin_repos`; authorization precedes lock-state
+  disclosure, and successful context handoffs are audited without the secret.

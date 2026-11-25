@@ -195,6 +195,21 @@ are redacted before either stderr or a file handler emits them; logs must still
 never be treated as a place to intentionally record credentials. Global flags
 precede the command, for example `auto-pass --log-level debug web`.
 
+### Provisioning administrator boundary
+
+The provisioning socket's UID check is only the first authorization layer.
+The `admin_context` operation returns the in-memory master database context, so
+its caller must also resolve to a repository explicitly listed before any
+`[repos.*]` tables in the local allowlist:
+
+```toml
+admin_repos = ["auto-pass"]
+```
+
+This grant is separate from `allowed_paths` and `writable_paths`. Missing,
+invalid, unresolved, or unlisted state fails closed without disclosing whether
+the vault is locked. Reload or restart the daemon after changing the allowlist.
+
 <details>
 <summary>Why not <code>pip install -e .</code> directly?</summary>
 

@@ -22,6 +22,8 @@ from auto_pass.server import ProvisioningServer
 
 ME = os.getuid()
 ALLOWLIST = """
+admin_repos = ["auto-pass"]
+
 [repos.simple]
 db = "master"
 allowed_paths = ["web/*", "exact/entry"]
@@ -171,15 +173,38 @@ def test_reload_rereads_the_allowlist_from_disk(h, tmp_path):
 
 
 def test_admin_context_is_refused_while_locked_and_hands_over_the_master_after_unlock(h):
+    h.caller = "auto-pass"
     assert h.ask({"op": "admin_context"}) == {"ok": False, "error": "daemon is locked"}
     h.unlock()
-    assert h.ask({"op": "admin_context"}) == {
+    assert h.ask({"op": "admin_context"}, pid=8181) == {
         "ok": True,
         "master_db_path": "/vaults/master.kdbx",
         "master_db_password": "master-pw",
         "master_key_file": "/keys/master.key",
         "master_db_alias": "master",
     }
+    [event] = h.events()
+    assert event["op"] == "admin_context"
+    assert event["repo"] == "auto-pass" and event["pid"] == 8181
+    assert "master-pw" not in json.dumps(event)
+
+
+def test_admin_context_denies_a_same_uid_repo_before_disclosing_lock_state(h, caplog):
+    h.caller = "simple"
+    assert h.ask({"op": "admin_context"}) == {"ok": False, "error": "admin context denied"}
+    h.unlock()
+    assert h.ask({"op": "admin_context"}) == {"ok": False, "error": "admin context denied"}
+    assert h.events() == []
+    assert "admin context denied by access policy pid=4242" in caplog.text
+    assert "simple" not in caplog.text
+
+
+def test_admin_context_denies_an_unresolvable_same_uid_caller(h, caplog):
+    h.caller = None
+    h.unlock()
+    assert h.ask({"op": "admin_context"}) == {"ok": False, "error": "admin context denied"}
+    assert h.events() == []
+    assert "unresolvable caller identity pid=4242" in caplog.text
 
 
 # --------------------------------------------------------------------------- get: the gate

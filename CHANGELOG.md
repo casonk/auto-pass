@@ -6,6 +6,12 @@ All notable changes to `auto-pass` are documented here.
 
 - The TPM browser-unlock installer now checks, before installing anything, that the PIN gate unit sets a `PATH` that resolves
   `auto-pass` (a system unit does not inherit the user's `PATH`, and the gate failed every check without it).
+- Harden the provisioning daemon's `admin_context` operation: matching the
+  daemon UID is no longer sufficient. The caller must resolve to a repository
+  named by the allowlist's top-level `admin_repos`, authorization happens before
+  vault state is disclosed, and successful handoffs are recorded without the
+  returned secret in the owner-only audit trail. Web allowlist edits preserve
+  both the admin list and existing `writable_paths` grants.
 - Add portfolio-standard cross-platform logging: stderr/journal on Linux,
   automatic owner-private rotating files on macOS and Windows, explicit level
   and file controls, and redaction before either destination emits a record.
